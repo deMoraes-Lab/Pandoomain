@@ -1,4 +1,10 @@
 #!/usr/bin/env Rscript
-install.packages("devtools", repos = "http://cran.us.r-project.org")
-devtools::install_github("raim/segmenTools")
-devtools::install_github("sfirke/janitor")
+
+# Install 'pak' if it isn't already available
+if (!requireNamespace("pak", quietly = TRUE)) {
+    install.packages("pak", repos = "http://cran.us.r-project.org")
+}
+
+# pak automatically handles github repos using the "user/repo" format
+pak::pak(c("raim/segmenTools", "sfirke/janitor"))
+

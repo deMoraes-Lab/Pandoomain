@@ -18,6 +18,7 @@ dependencies:
   # install_iscan.py  
   - httplib2
   - aria2
+  - libgomp
   - openjdk
   # install_Rlibs.R
   - r-devtools

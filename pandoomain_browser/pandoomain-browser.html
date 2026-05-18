@@ -1,0 +1,519 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pandoomain Visualizer</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.10.3/sql-asm.js"></script>
+    <style>
+        /* Custom Tooltip */
+        .tooltip {
+            position: relative;
+            display: inline-block;
+        }
+
+        .tooltip .tooltiptext {
+            visibility: hidden;
+            width: 250px;
+            background-color: #333;
+            color: #fff;
+            text-align: left;
+            border-radius: 6px;
+            padding: 8px;
+            position: absolute;
+            z-index: 1;
+            bottom: 125%;
+            left: 50%;
+            margin-left: -125px;
+            opacity: 0;
+            transition: opacity 0.3s;
+            font-size: 0.8rem;
+            pointer-events: none;
+        }
+
+        .tooltip:hover .tooltiptext {
+            visibility: visible;
+            opacity: 1;
+        }
+
+        /* Gene arrow styles */
+        .gene-arrow {
+            clip-path: polygon(0% 15%, max(0%, calc(100% - 10px)) 15%, 100% 50%, max(0%, calc(100% - 10px)) 85%, 0% 85%);
+        }
+
+        .gene-arrow-rev {
+            clip-path: polygon(min(100%, 10px) 15%, 100% 15%, 100% 85%, min(100%, 10px) 85%, 0% 50%);
+        }
+
+        /* Focused gene area close button */
+        #focused-gene-area .close-btn {
+            position: absolute;
+            top: 0.5rem;
+            right: 0.5rem;
+            cursor: pointer;
+        }
+
+        /* Border effect for gene arrows */
+        .arrow-border {
+            filter: drop-shadow(0 0 1px #333);
+        }
+    </style>
+</head>
+
+<body class="bg-gray-100 font-sans">
+
+    <div class="container mx-auto p-4">
+        <main>
+            <!-- Header & Upload Section Combined -->
+            <section id="upload-section"
+                class="bg-white p-6 rounded-lg shadow-md mb-6 flex flex-col lg:flex-row items-center justify-between gap-8">
+
+                <!-- Left: Branding -->
+                <div class="flex flex-col items-center lg:items-start space-y-2">
+                    <div class="flex items-center gap-4">
+                        <img src="logo-browser.svg" alt="Pandoomain Logo" class="h-24 w-24">
+                        <h1 class="text-4xl font-bold text-gray-800">Pandoomain<br>Browser</h1>
+                    </div>
+                    <a href="https://github.com/deMoraes-Lab/Pandoomain" target="_blank"
+                        class="text-gray-600 hover:text-blue-600 text-sm font-medium">
+                        https://github.com/deMoraes-Lab/Pandoomain
+                    </a>
+                </div>
+
+                <!-- Right: Load Data -->
+                <div class="flex-grow max-w-4xl w-full">
+                    <h2 class="text-2xl font-semibold mb-4 text-gray-700">1. Load Data</h2>
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                        <div class="flex flex-col">
+                            <label for="neighbors-db-upload"
+                                class="mb-1 text-xs font-bold text-gray-500 uppercase tracking-wide">Neighbors
+                                Database</label>
+                            <input id="neighbors-db-upload" type="file" accept=".db" class="block w-full text-sm text-gray-500
+                                file:mr-4 file:py-2 file:px-4
+                                file:rounded-full file:border-0
+                                file:text-sm file:font-semibold
+                                file:bg-blue-50 file:text-blue-700
+                                hover:file:bg-blue-100
+                            " />
+                            <span class="text-xs text-gray-400 mt-1">neighbors.db</span>
+                        </div>
+                        <div class="flex flex-col">
+                            <label for="iscan-db-upload"
+                                class="mb-1 text-xs font-bold text-gray-500 uppercase tracking-wide">InterProScan
+                                Database</label>
+                            <input id="iscan-db-upload" type="file" accept=".db" class="block w-full text-sm text-gray-500
+                                file:mr-4 file:py-2 file:px-4
+                                file:rounded-full file:border-0
+                                file:text-sm file:font-semibold
+                                file:bg-green-50 file:text-green-700
+                                hover:file:bg-green-100
+                            " />
+                            <span class="text-xs text-gray-400 mt-1">iscan.db</span>
+                        </div>
+                        <div class="flex flex-col">
+                            <label for="metadata-db-upload"
+                                class="mb-1 text-xs font-bold text-gray-500 uppercase tracking-wide">Metadata
+                                Database</label>
+                            <input id="metadata-db-upload" type="file" accept=".db" class="block w-full text-sm text-gray-500
+                                file:mr-4 file:py-2 file:px-4
+                                file:rounded-full file:border-0
+                                file:text-sm file:font-semibold
+                                file:bg-purple-50 file:text-purple-700
+                                hover:file:bg-purple-100
+                            " />
+                            <span class="text-xs text-gray-400 mt-1">metadata.db</span>
+                        </div>
+                    </div>
+                    <div id="status-message" class="mt-4 text-center text-gray-500 text-sm">Ready. Please load all three
+                        database files.</div>
+                </div>
+            </section>
+
+            <!-- Query Section -->
+            <section id="query-section" class="bg-white p-6 rounded-lg shadow-md mb-6">
+                <h2 class="text-2xl font-semibold mb-4 text-gray-700">2. Find Neighborhoods</h2>
+                <div class="flex gap-4">
+                    <input type="text" id="search-input" placeholder="Search by Genome ID or Protein ID (pid)..."
+                        class="flex-grow p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none">
+                    <button id="search-button"
+                        class="bg-blue-500 text-white px-6 py-3 rounded-lg font-semibold hover:bg-blue-600 disabled:bg-gray-300">Search</button>
+                </div>
+            </section>
+
+            <!-- Results & Visualization -->
+            <section id="results-and-viz" class="bg-white p-6 rounded-lg shadow-md">
+                <h2 class="text-2xl font-semibold mb-4 text-gray-700">3. Explore</h2>
+                <div class="grid grid-cols-1 lg:grid-cols-4 gap-6">
+                    <!-- Results List -->
+                    <div id="results-section"
+                        class="lg:col-span-1 h-96 overflow-y-auto border rounded-lg p-3 bg-gray-50">
+                        <p class="text-gray-400">Search results will appear here.</p>
+                    </div>
+
+                    <!-- Main Visualization Area -->
+                    <div class="lg:col-span-3">
+                        <div id="metadata-display" class="mb-4 text-lg text-gray-600 italic"></div>
+                        <div id="focused-gene-area"
+                            class="hidden p-4 border border-gray-300 rounded-lg mb-4 bg-white relative"></div>
+                        <div id="visualization-canvas" class="space-y-2"></div>
+                    </div>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <script>
+        // --- Global State ---
+        let neighborsDB = null;
+        let iscanDB = null;
+        let metadataDB = null;
+        const LINE_WIDTH_BP = 12000; // Constant for one line of visualization
+
+        // --- DOM Elements ---
+        const neighborsUpload = document.getElementById('neighbors-db-upload');
+        const iscanUpload = document.getElementById('iscan-db-upload');
+        const metadataUpload = document.getElementById('metadata-db-upload');
+        const statusMessage = document.getElementById('status-message');
+        const searchInput = document.getElementById('search-input');
+        const searchButton = document.getElementById('search-button');
+        const resultsSection = document.getElementById('results-section');
+        const metadataDisplay = document.getElementById('metadata-display');
+        const focusedGeneArea = document.getElementById('focused-gene-area');
+        const vizCanvas = document.getElementById('visualization-canvas');
+
+        // --- Initialization ---
+        document.addEventListener('DOMContentLoaded', async () => {
+            searchButton.disabled = true;
+            const SQL = await initSqlJs({ locateFile: file => `https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.10.3/${file}` });
+
+            const handleFileUpload = async (event, dbName, dbTarget) => {
+                const file = event.target.files[0];
+                if (!file) return;
+
+                statusMessage.textContent = `Loading ${dbName}...`;
+                try {
+                    const arrayBuffer = await file.arrayBuffer();
+                    const db = new SQL.Database(new Uint8Array(arrayBuffer));
+                    if (dbTarget === 'neighbors') neighborsDB = db;
+                    else if (dbTarget === 'iscan') iscanDB = db;
+                    else if (dbTarget === 'metadata') metadataDB = db;
+
+                    updateStatus();
+                } catch (e) {
+                    console.error(e);
+                    statusMessage.textContent = `Error loading ${dbName}.`;
+                }
+            };
+
+            neighborsUpload.addEventListener('change', (e) => handleFileUpload(e, 'neighbors.db', 'neighbors'));
+            iscanUpload.addEventListener('change', (e) => handleFileUpload(e, 'iscan.db', 'iscan'));
+            metadataUpload.addEventListener('change', (e) => handleFileUpload(e, 'metadata.db', 'metadata'));
+        });
+
+        function updateStatus() {
+            const loaded = [];
+            if (neighborsDB) loaded.push('Neighbors');
+            if (iscanDB) loaded.push('InterProScan');
+            if (metadataDB) loaded.push('Metadata');
+
+            if (loaded.length === 3) {
+                statusMessage.textContent = 'All databases loaded! Ready to search.';
+                statusMessage.classList.add('text-green-600');
+                searchButton.disabled = false;
+            } else {
+                statusMessage.textContent = `Loaded: ${loaded.join(', ') || 'None'}`;
+            }
+        }
+
+        // --- Search & Query Logic ---
+        searchButton.addEventListener('click', performSearch);
+        searchInput.addEventListener('keyup', (e) => {
+            if (e.key === 'Enter') performSearch();
+        });
+
+        function performSearch() {
+            const searchTerm = searchInput.value.trim();
+            if (!searchTerm || !neighborsDB) return;
+
+            resultsSection.innerHTML = '<p class="text-gray-500">Searching...</p>';
+
+            try {
+                const stmt = neighborsDB.prepare(`
+                    SELECT DISTINCT genome, nei
+                    FROM neighbors
+                    WHERE genome = :term OR pid = :term
+                    ORDER BY genome, nei;
+                `);
+                stmt.bind({ ':term': searchTerm });
+
+                const results = [];
+                while (stmt.step()) {
+                    results.push(stmt.getAsObject());
+                }
+                stmt.free();
+
+                renderSearchResults(results);
+            } catch (e) {
+                console.error(e);
+                resultsSection.innerHTML = '<p class="text-red-500">An error occurred during search.</p>';
+            }
+        }
+
+        function renderSearchResults(results) {
+            if (results.length === 0) {
+                resultsSection.innerHTML = '<p class="text-gray-500">No matching neighborhoods found.</p>';
+                return;
+            }
+
+            resultsSection.innerHTML = '';
+            const list = document.createElement('ul');
+            list.className = 'space-y-2';
+
+            results.forEach(result => {
+                const item = document.createElement('li');
+                item.className = 'p-2 rounded-md cursor-pointer hover:bg-blue-100';
+                item.textContent = `${result.genome} - Neighborhood ${result.nei}`;
+                item.addEventListener('click', () => visualizeNeighborhood(result.genome, result.nei));
+                list.appendChild(item);
+            });
+            resultsSection.appendChild(list);
+        }
+
+        // --- Visualization Logic ---
+        async function visualizeNeighborhood(genomeId, neiId) {
+            // Clear previous state
+            vizCanvas.innerHTML = '';
+            metadataDisplay.innerHTML = '';
+            focusedGeneArea.classList.add('hidden');
+            focusedGeneArea.innerHTML = '';
+
+            // 1. Get Genes in Neighborhood
+            const genes = neighborsDB.exec(`
+                SELECT * FROM neighbors 
+                WHERE genome = '${genomeId}' AND nei = ${neiId} 
+                ORDER BY start;
+            `)[0]?.values.map(row => {
+                // Manually map array to object based on known column order
+                return { genome: row[0], nei: row[1], neioff: row[2], gene_order: row[3], pid: row[4], gene: row[5], product: row[6], start: row[7], end: row[8], strand: row[9], frame: row[10], locus_tag: row[11], contig: row[12], queries: row[13] };
+            }) || [];
+
+            if (genes.length === 0) {
+                vizCanvas.innerHTML = '<p class="text-gray-500">No gene data for this neighborhood.</p>';
+                return;
+            }
+
+            // 2. Get PIDs and fetch domains
+            const pids = genes.map(g => g.pid);
+            const domains = iscanDB ? iscanDB.exec(`
+                SELECT * FROM iscan WHERE pid IN (${pids.map(p => `'${p}'`).join(',')});
+            `)[0]?.values || [] : [];
+
+            const domainMap = new Map();
+            domains.forEach(d => {
+                const domainObj = { pid: d[0], start: d[1], stop: d[2], length: d[3], pfam: d[4], pfam_desc: d[5] };
+                if (!domainMap.has(domainObj.pid)) {
+                    domainMap.set(domainObj.pid, []);
+                }
+                domainMap.get(domainObj.pid).push(domainObj);
+            });
+
+            // 3. Get and display metadata
+            if (metadataDB) {
+                const meta = metadataDB.exec(`SELECT org, strain FROM metadata WHERE genome = '${genomeId}'`)[0]?.values[0];
+                if (meta) {
+                    metadataDisplay.innerHTML = `<em>${meta[0]}</em> (Strain: ${meta[1] || 'N/A'})`;
+                }
+            }
+
+            // 4. Calculate Layout & Render
+            renderGenes(genes, domainMap);
+        }
+
+        function renderGenes(genes, domainMap) {
+            const min_start = genes[0].start;
+            const max_end = Math.max(...genes.map(g => g.end));
+            const total_span = max_end - min_start;
+            const num_lines = Math.ceil(total_span / LINE_WIDTH_BP);
+
+            const lineContainers = [];
+            for (let i = 0; i < num_lines; i++) {
+                const lineDiv = document.createElement('div');
+                lineDiv.className = 'relative w-full h-24 mt-4 pt-2';
+
+                // Add central axis line
+                const axis = document.createElement('div');
+                axis.className = 'absolute w-full h-px bg-gray-400';
+                axis.style.top = '50%';
+                axis.style.transform = 'translateY(-50%)';
+                axis.style.zIndex = 0;
+                lineDiv.appendChild(axis);
+
+                // Add ruler ticks
+                const line_start_coord = min_start + i * LINE_WIDTH_BP;
+                for (let j = 0; j < 5; j++) { // 0, 3k, 6k, 9k, 12k
+                    const tick = document.createElement('div');
+                    tick.className = 'absolute';
+                    tick.style.left = `${(j / 4) * 100}%`;
+
+                    const label = document.createElement('span');
+                    // Base classes
+                    let labelClasses = 'absolute -top-4 text-xs text-gray-500 whitespace-nowrap';
+
+                    // Adjust alignment based on position
+                    if (j === 0) {
+                        // Left-most: default alignment
+                    } else if (j === 4) {
+                        // Right-most: shift left by 100%
+                        labelClasses += ' -translate-x-full';
+                    } else {
+                        // Middle: center align
+                        labelClasses += ' -translate-x-1/2';
+                    }
+
+                    label.className = labelClasses;
+                    const tick_coord = line_start_coord + j * 3000;
+                    label.textContent = tick_coord.toLocaleString();
+                    tick.appendChild(label);
+                    lineDiv.appendChild(tick);
+                }
+                vizCanvas.appendChild(lineDiv);
+                lineContainers.push(lineDiv);
+            }
+
+            genes.forEach(gene => {
+                const gene_length = gene.end - gene.start;
+                const relative_start = gene.start - min_start;
+                let line_index = Math.floor(relative_start / LINE_WIDTH_BP);
+                let start_pos_on_line = relative_start % LINE_WIDTH_BP;
+
+                if ((start_pos_on_line + gene_length) > LINE_WIDTH_BP && line_index + 1 < num_lines) {
+                    line_index++;
+                    start_pos_on_line = 0;
+                }
+
+                const left_percent = (start_pos_on_line / LINE_WIDTH_BP) * 100;
+                const width_percent = (gene_length / LINE_WIDTH_BP) * 100;
+
+                const geneDiv = document.createElement('div');
+                geneDiv.className = `absolute h-8 top-8 tooltip`;
+                geneDiv.style.left = `${left_percent}%`;
+                geneDiv.style.width = `${width_percent}%`;
+                geneDiv.style.zIndex = gene.neioff === 0 ? 10 : 1;
+
+                // Wrapper for the arrow shape to apply drop-shadow filter (border effect)
+                const arrowWrapper = document.createElement('div');
+                arrowWrapper.className = 'h-full w-full arrow-border';
+
+                const geneBlock = document.createElement('div');
+                geneBlock.className = `h-full w-full ${gene.strand === '+' ? 'gene-arrow' : 'gene-arrow-rev'}`;
+                geneBlock.style.backgroundColor = gene.neioff === 0 ? '#FBBF24' : '#9CA3AF'; // bg-yellow-400 or bg-gray-400
+
+                arrowWrapper.appendChild(geneBlock);
+
+                // Tooltip
+                const tooltipText = document.createElement('span');
+                tooltipText.className = 'tooltiptext';
+                tooltipText.innerHTML = `<strong>Product:</strong> ${gene.product || 'N/A'}<br>
+                                         <strong>PID:</strong> ${gene.pid}<br>
+                                         <strong>Locus Tag:</strong> ${gene.locus_tag || 'N/A'}`;
+                geneDiv.appendChild(tooltipText);
+
+                // Render domains inside gene block
+                const geneDomains = domainMap.get(gene.pid) || [];
+
+
+                geneDiv.appendChild(arrowWrapper);
+                geneDiv.addEventListener('click', () => showFocusedGene(gene, geneDomains));
+
+                if (lineContainers[line_index]) {
+                    lineContainers[line_index].appendChild(geneDiv);
+                }
+            });
+        }
+
+        function showFocusedGene(gene, domains) {
+            focusedGeneArea.innerHTML = '';
+            focusedGeneArea.classList.remove('hidden');
+
+            const closeBtn = document.createElement('span');
+            closeBtn.className = 'close-btn text-gray-500 hover:text-gray-800';
+            closeBtn.innerHTML = '&times;';
+            closeBtn.onclick = () => {
+                focusedGeneArea.classList.add('hidden');
+                focusedGeneArea.innerHTML = '';
+            };
+
+            const title = document.createElement('h3');
+            title.className = 'text-xl font-semibold mb-2';
+            title.innerHTML = `Focused Gene: ${gene.product || 'N/A'} <span class="text-base font-normal text-gray-600">(${gene.pid})</span>`;
+
+            const backbone = document.createElement('div');
+            backbone.className = 'relative w-full h-8 bg-gray-200 rounded-full my-4';
+
+            const legendList = document.createElement('ul');
+            legendList.className = 'list-disc list-inside mt-2 text-sm';
+            const seenDomains = new Set();
+
+            if (domains.length > 0) {
+                const protein_length = domains[0].length;
+                if (protein_length > 0) {
+                    domains.forEach(domain => {
+                        const domainDiv = document.createElement('div');
+                        const domain_left = (domain.start / protein_length) * 100;
+                        const domain_width = ((domain.stop - domain.start) / protein_length) * 100;
+                        domainDiv.className = 'absolute h-full rounded-full tooltip';
+                        domainDiv.style.left = `${domain_left}%`;
+                        domainDiv.style.width = `${domain_width}%`;
+                        const color = stringToColor(domain.pfam);
+                        domainDiv.style.backgroundColor = color;
+
+                        const domainTooltip = document.createElement('span');
+                        domainTooltip.className = 'tooltiptext';
+                        domainTooltip.innerHTML = `<strong>${domain.pfam} - ${domain.pfam_desc || ''}</strong><br>Start: ${domain.start}, End: ${domain.stop}`;
+                        domainDiv.appendChild(domainTooltip);
+                        backbone.appendChild(domainDiv);
+                    });
+                }
+
+                domains.forEach(domain => {
+                    if (!seenDomains.has(domain.pfam)) {
+                        const legendItem = document.createElement('li');
+                        const color = stringToColor(domain.pfam);
+                        legendItem.innerHTML = `<span class="inline-block w-4 h-4 rounded-full mr-2" style="background-color: ${color};"></span> ${domain.pfam} - ${domain.pfam_desc || ''}`;
+                        legendList.appendChild(legendItem);
+                        seenDomains.add(domain.pfam);
+                    }
+                });
+            }
+
+            focusedGeneArea.appendChild(closeBtn);
+            focusedGeneArea.appendChild(title);
+            focusedGeneArea.appendChild(backbone);
+            if (domains.length > 0) {
+                focusedGeneArea.appendChild(legendList);
+            }
+        }
+
+
+
+        // --- Utility Functions ---
+        function stringToColor(str) {
+            let hash = 0;
+            for (let i = 0; i < str.length; i++) {
+                hash = str.charCodeAt(i) + ((hash << 5) - hash);
+            }
+            let color = '#';
+            for (let i = 0; i < 3; i++) {
+                let value = (hash >> (i * 8)) & 0xFF;
+                color += ('00' + value.toString(16)).substr(-2);
+            }
+            return color;
+        }
+
+    </script>
+
+</body>
+
+</html>

@@ -6,6 +6,10 @@ rule all:
     input:
         f"{RESULTS}/absence_presence.tsv",
         f"{RESULTS}/hits.tsv",
+        # Browser visualizer files
+        f"{RESULTS}/browser_files/iscan.db",
+        f"{RESULTS}/browser_files/metadata.db",
+        f"{RESULTS}/browser_files/neighbors.db",
 
 
 rule hmmer:
@@ -118,71 +122,43 @@ rule interproscan:
     output:
         iscan_raw=f"{RESULTS}/.iscan_raw.tsv",
     params:
-        tmp="/tmp",
+        tmp=f"{RESULTS}/.tmp_interproscan",
         pieces=f"{RESULTS}/.pieces_iscan",
         in_dir=f"{rules.split_faa.params.pieces}",
+        # Change this line to assume it's in the PATH
+        interproscan_cmd="interproscan.sh", 
     threads: workflow.cores
     cache: True
-    run:
-        import re
-        import shutil
-        import subprocess as sp
-        from pathlib import Path
-
-        IN_DIR = Path(f"{params.in_dir}")
-        OUT_FILE = Path(f"{output}")
-
-        OUT_DIR = Path(f"{params.pieces}")
-        CPUS = int(f"{threads}")
-        ISCAN_TMP = Path(f"{params.tmp}")
-
-
-        def cat(*files, out_file) -> None:
-
-            with open(out_file, "wb") as hout:
-                for file in files:
-                    with open(file, "rb") as hfile:
-                        shutil.copyfileobj(hfile, hout)
-
-
-        def gen_cmd(in_faa):
-            """
-    Output formats:
-    Default for protein sequences are TSV, XML and GFF3
-    """
-            cmd = [
-                "interproscan.sh",
-                "--input",
-                str(in_faa),
-                "--cpu",
-                str(CPUS),
-                "--tempdir",
-                str(ISCAN_TMP),
-                "--goterms",
-                "--enable-tsv-residue-annot",
-            ]
-            return cmd
-
-            # main
-
-
-        if OUT_DIR.exists():
-            shutil.rmtree(OUT_DIR)
-        OUT_DIR.mkdir()
-        in_faas = [
-            (IN_DIR / i).resolve()
-            for i in os.listdir(IN_DIR)
-            if re.search(r"\d+\.faa$", i)
-        ]
-
-        for in_faa in in_faas:
-            sp.run(gen_cmd(in_faa), cwd=OUT_DIR, check=True)
-
-        out_tsvs = [
-            OUT_DIR / i for i in os.listdir(OUT_DIR) if re.search(r"\w+\.tsv$", i)
-        ]
-
-        cat(*out_tsvs, out_file=OUT_FILE)
+    shell:
+        """
+        set -x 
+        rm -rf {params.pieces}
+        mkdir -p {params.pieces}
+        
+        shopt -s nullglob
+        files=({params.in_dir}/*.faa)
+        count=${{#files[@]}}
+        
+        if [ "$count" -eq 0 ]; then
+             echo "CRITICAL: No .faa files found in {params.in_dir}"
+             exit 1
+        fi
+        
+        for faa in "${{files[@]}}"; do
+            # This will now call 'interproscan.sh' directly
+            {params.interproscan_cmd} \\
+                --input "$faa" \\
+                --cpu {threads} \\
+                --tempdir {params.tmp} \\
+                --goterms \\
+                --enable-tsv-residue-annot \\
+                -dp \\
+                -d {params.pieces} \\
+                -f TSV || {{ echo "CRITICAL: InterProScan failed for $faa"; exit 1; }}
+        done
+        
+        cat {params.pieces}/*.tsv > {output.iscan_raw}
+        """
 
 
 rule add_header_iscan:
@@ -203,9 +179,11 @@ rule get_archs:
         neighbors=rules.get_neighbors.output,
     output:
         archs=f"{RESULTS}/archs.tsv",
+        pidrow=f"{RESULTS}/archs_pidrow.tsv",
+        code=f"{RESULTS}/archs_code.tsv",
     shell:
         """
-workflow/scripts/archs.R {input} >| {output}
+workflow/scripts/archs.R {input.iscan} {output.archs} {output.pidrow} {output.code}
 """
 
 
@@ -215,10 +193,11 @@ rule get_absence_presence:
         proteins=rules.get_neighbors.output,
         domains=rules.get_archs.output.archs,
     output:
+        TGPD=f"{RESULTS}/TGPD.tsv",
         absence_presence=f"{RESULTS}/absence_presence.tsv",
     shell:
         """
-workflow/scripts/absence_presence.R {input} >| {output}
+workflow/scripts/absence_presence.R {input.taxa} {input.proteins} {input.domains} {output.TGPD} {output.absence_presence}
 """
 
 
@@ -232,3 +211,45 @@ rule get_hits:
         """
 workflow/scripts/archs_extended.R {input} >| {output}
 """
+
+
+
+
+rule browser_iscan:
+    input:
+        iscan=f"{RESULTS}/iscan.tsv",
+    output:
+        db=f"{RESULTS}/browser_files/iscan.db",
+    priority: 1
+    shell:
+        """
+        python workflow/scripts/browser_iscan.py {input.iscan} {output.db}
+        """
+
+
+
+rule browser_metadata:
+    input:
+        metadata=f"{RESULTS}/genomes_metadata.tsv",
+        # Force dependency on iscan to run sequentially
+        prev=f"{RESULTS}/browser_files/iscan.db",
+    output:
+        db=f"{RESULTS}/browser_files/metadata.db",
+    shell:
+        """
+        python workflow/scripts/browser_metadata.py {input.metadata} {output.db}
+        """
+
+
+
+rule browser_neighbors:
+    input:
+        neighbors=f"{RESULTS}/neighbors.tsv",
+        # Force dependency on metadata to run sequentially
+        prev=f"{RESULTS}/browser_files/metadata.db",
+    output:
+        db=f"{RESULTS}/browser_files/neighbors.db",
+    shell:
+        """
+        python workflow/scripts/browser_neighbors.py {input.neighbors} {output.db}
+        """

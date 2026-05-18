@@ -7,15 +7,15 @@
 </p>
 <hr />
 
-# pandoomain: the pipe
+# Pandoomain: A scalable pipeline for genomic and protein domain context analysis 
 
 ---
 
-## v1.0.0
+## v2.0.0
 
 I recommend using and sending patches
 to the upstream version that is at:
-https://github.com/elbecerrasoto/pandoomain
+https://github.com//deMoraes-Lab/Pandoomain
 
 ## Contents
 
@@ -58,6 +58,16 @@ The reasons for this are:
 - *Unicode* can comfortably accommodate all defined *PFAMs* (*\~16,000*), as it provides *155,063* characters.
    User-defined HMMs could be assigned a *code point* bigger than *18,000* to comfortably dodge any *PFAM ID*.
 
+### Output visualization ###
+
+Pandoomain results can be easily visualized using the HTML GUI interface "Pandoomain Browser".
+The interface requires the user to upload the SQL files neighborhood.db, iscan.db, and metadata.db in the HTML file "pandoomain_browser/pandoomain_browser.html".
+The user will be able to search for specific genome or protein IDs that will show the respective gene neighborhhod and domains present in the protein.
+Below is one example of Pandoomain Browser output.
+
+<h1 align="center"> <img src="pics/Pandoomain_Browser.svg" width="2048"> </h1>
+
+
 ### Pipeline Workflow
 
 The pipeline takes two inputs:
@@ -70,7 +80,6 @@ annotates them with [`interproscan.sh`](https://github.com/ebi-pf-team/interpros
 
 The final results include taxonomic data for further analysis.
 
-*pandoomain* is used at the [DeMoraes Lab](https://www.demoraeslab.org/) to search for novel bacterial toxins.
 
 ---
 
@@ -195,6 +204,22 @@ Everything should now be set up and ready to run. 🚀
 
 ## Version Changes
 
+### 2.0.0
+
++ Interactive Browser Visualization
+    + Introduced a new web-based visualizer (pandoomain-browser.html) allowing users to interactively explore pipeline outputs.
+    + The pipeline now automatically generates formatted SQLite database files (iscan.db, metadata.db, neighbors.db) natively supported by the new browser interface.
+
++ Updated utils/install_Rlibs.R to use pak to install R packages
+
++ Enhanced Protein Domain Encoding
+    + Upgraded the domain architecture encoding system in archs.R to support a massive number of unique protein domains.
+    + Replaced the standard single-letter code with a high-stability, high-contrast Unicode pool. Orioritizes geometric shapes and multiple universal alphabets (Latin, Greek, Cyrillic, Armenian, Devanagari) ensuring left-to-right reading stability across massive datasets.
+
++ Improved InterProScan Execution
+    + Rewrote the interproscan execution logic in the Snakemake workflow for increased reliability and performance.
+Transitioned from a Python-wrapped execution to a direct bash execution model that efficiently processes chunks of .faa files, with built-in error handling for missing files and failed jobs.
+
 ### 0.0.2
 
 + Removal of *hmmer_input rule*.
@@ -204,3 +229,8 @@ Everything should now be set up and ready to run. 🚀
 + Fixed taxallnomy bug, caused by an updated DB.
     + taxallnomy now has 43 cols instead of 42.
 + Removal of utils.py
+
+
+
+
+
