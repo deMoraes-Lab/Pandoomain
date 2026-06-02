@@ -20,8 +20,11 @@ dependencies:
   - aria2
   - libgomp
   - openjdk
-  # install_Rlibs.R
+  # install_Rlibs.R / Dependencies
   - r-devtools
+  - r-remotes       # Added to handle GitHub-based R installations robustly
+  - r-janitor       # Added natively so Conda installs janitor on setup
+  - r-segmentier    # Added because segmenTools relies heavily on this peer package
   - zlib
   # Makefile
   - black
