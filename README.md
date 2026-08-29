@@ -194,6 +194,13 @@ mamba activate pandoomain
 make install-iscan
 ```
 
+This downloads about 7 GB and expands to about 60 GB, so it takes a while.
+To see the steps it would run without changing anything:
+
+```sh
+make install-iscan-dry
+```
+
 #### 5. Install R Libraries
 
 ```sh

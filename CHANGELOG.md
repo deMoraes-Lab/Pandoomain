@@ -122,6 +122,49 @@ across 10 database groups, 902 aa) renders all 31 bands with zero occlusion.
 68 proteins carrying no domain annotation render the empty-state message
 without error.
 
+### Build / installation
+
+#### `make install-iscan` now performs a real installation
+
+The rule defaulted to `ISCAN_DRY = --dry`, so the invocation documented in the
+README only ever printed the steps. Installing for real required discovering
+and passing `ISCAN_DRY=''`.
+
+`ISCAN_DRY` now defaults to empty, so `make install-iscan` installs. The
+preview is still available and is now an explicit target:
+
+```sh
+make install-iscan       # real installation
+make install-iscan-dry   # print the steps, change nothing
+```
+
+The real path first reports the version, destination and footprint (~7 GB
+downloaded, ~60 GB installed). The dry flag is now spelled `--dry-run`, which
+is what the script actually declares; `--dry` worked only via argparse prefix
+matching and would have broken silently had another `--dry*` option been added.
+
+#### `utils/install_iscan.py` is executable
+
+The file was recorded in git as mode `100644`, while every other script the
+pipeline executes directly (`install_Rlibs.R`, `hmmer.py`, `neighbors.R`) is
+`100755`. Because the rule invokes it as `$<`, a fresh clone failed with
+`permission denied` until the user ran `chmod +x` by hand. Now recorded as
+`100755`.
+
+#### Makefile `.PHONY` declarations
+
+Twelve declarations were written `.PHONY target:` instead of `.PHONY: target`.
+The former declares a target *named* `.PHONY` whose prerequisite is the real
+target, so nothing was ever marked phony and a stray file matching a target
+name would have silently disabled that rule.
+
+#### `.DS_Store`
+
+macOS Finder metadata had been committed to the repository. It is now untracked
+and listed in `.gitignore`.
+
+---
+
 ### Known issues / not addressed in this release
 
 The following items from the v2.0.1 plan are **not** included here:
@@ -132,10 +175,6 @@ The following items from the v2.0.1 plan are **not** included here:
   time would also cut InterProScan runtime substantially.
 - A utility to format HMM files (`hmm4pandoomain/hmm_curator.py` is not yet
   wired into `utils/`).
-- Removing the `ISCAN_DRY` default from `make install-iscan`.
-- `utils/install_iscan.py` is not executable in git (mode `100644`), but the
-  `install-iscan` Makefile rule invokes it directly as `$<`. It needs mode
-  `100755`.
 
 ---
 
