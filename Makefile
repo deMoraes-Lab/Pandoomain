@@ -25,7 +25,9 @@ PNGS = $(foreach i,$(FIG_NAMES),$(FIG_DIR)/$(i).png)
 
 ISCAN_SCRIPT = utils/install_iscan.py
 ISCAN_DATA = $(PWD)
-ISCAN_DRY = --dry
+# Empty means a real installation. For a preview of the steps run
+# `make install-iscan-dry`, or pass ISCAN_DRY=--dry-run explicitly.
+ISCAN_DRY =
 
 RM_TEST = tests/rm_except_genomes.py
 
@@ -42,7 +44,7 @@ CLEAN = .snakemake $(FIG_DIR) $(RESULTS) $(MINIFORGE) $(SHA256) $(CACHE) $(DEBUG
 R_LIBS_SCRIPT = utils/install_Rlibs.R
 
 
-.PHONY help:
+.PHONY: help
 help:
 	@printf "The following are the available rules:\n\n"
 	@awk -F':' '/^[a-zA-Z0-9_-]+:/ {print $$1}' Makefile
@@ -53,7 +55,7 @@ help:
 	@printf "        make print-vars\n"
 
 
-.PHONY print-vars:
+.PHONY: print-vars
 print-vars:
 	@grep '^[a-zA-Z0-9_]\+ *=' Makefile
 
@@ -68,25 +70,35 @@ $(MINIFORGE):
 	sha256sum -c '$(SHA256)'
 
 
-.PHONY install-mamba:
+.PHONY: install-mamba
 install-mamba: $(MINIFORGE)
 	chmod +x $<
 	./$< -b -u -p $(MINIFORGE_INSTALL_DIR)
 
 
-.PHONY install-iscan:
+.PHONY: install-iscan
 install-iscan: $(ISCAN_SCRIPT)
-	@if [[ ! -z "$(ISCAN_DRY)" ]]; then printf "DRY RUN MODE\n"; fi
-	@if [[ ! -z "$(ISCAN_DRY)" ]]; then printf "to use the real thing, do:\n\n    make install-iscan ISCAN_DRY=''\n\n"; fi
+	@if [[ -z "$(ISCAN_DRY)" ]]; then \
+		printf "Installing InterProScan $(ISCAN_VERSION) into $(ISCAN_DATA)\n"; \
+		printf "Downloads ~7GB and expands to ~60GB. This takes a while.\n"; \
+		printf "To preview the steps instead: make install-iscan-dry\n\n"; \
+	else \
+		printf "DRY RUN MODE: nothing will be downloaded or installed.\n\n"; \
+	fi
 	$< --target $(ISCAN_VERSION) --data $(ISCAN_DATA) $(ISCAN_DRY)
 
 
-.PHONY install-Rlibs:
+.PHONY: install-iscan-dry
+install-iscan-dry:
+	@$(MAKE) --no-print-directory install-iscan ISCAN_DRY=--dry-run
+
+
+.PHONY: install-Rlibs
 install-Rlibs: $(R_LIBS_SCRIPT)
 	$<
 
 
-.PHONY test:
+.PHONY: test
 test: $(SNAKEFILE) $(GENOMES) $(CONFIG) $(RM_TEST)
 	@printf "Before looking for errors, run:\n"
 	@printf "make clean\n\n"
@@ -94,20 +106,20 @@ test: $(SNAKEFILE) $(GENOMES) $(CONFIG) $(RM_TEST)
 	$(SNAKEMAKE) --configfile $(CONFIG)
 
 
-.PHONY test-dry:
+.PHONY: test-dry
 test-dry: $(SNAKEFILE) $(GENOMES) $(CONFIG) $(RM_TEST)
 	$(RM_TEST)
 	$(SNAKEMAKE) --configfile $(CONFIG) -np
 
 
-.PHONY debug:
+.PHONY: debug
 debug: $(SNAKEFILE) $(GENOMES) $(CONFIG)
 	$(SNAKEMAKE) --configfile $(CONFIG) -np --print-compilation >| $(DEBUG)
 	black $(DEBUG)
 	less $(DEBUG)
 
 
-.PHONY style:
+.PHONY: style
 style:
 	snakefmt workflow
 	black workflow utils tests
@@ -132,18 +144,18 @@ report.html: $(SNAKEFILE) $(GENOMES) $(CONFIG)
 	$(SNAKEMAKE) --configfile $(CONFIG) --report
 
 
-.PHONY git-config:
+.PHONY: git-config
 git-config:
 	git config --global alias.root 'rev-parse --show-toplevel'
 	git config push.autoSetupRemote true
 
 
-.PHONY git-add-upstream:
+.PHONY: git-add-upstream
 git-add-upstream:
 	git remote add upstream https://github.com/elbecerrasoto/pandoomain
 
 
-.PHONY clean:
+.PHONY: clean
 clean:
 	@rm -rf $(CLEAN)
 	git clean -d -n
