@@ -296,7 +296,7 @@ It looks like:
 #### `all.faa`
 
 FASTA file of all unique proteins
-that were found by _pandoomain_,
+that were found by _Pandoomain_,
 including those that are neighbors to
 the subject proteins (hits).
 
@@ -321,7 +321,7 @@ EI
 
 Domain annotation of
 the proteins that were found by
-_pandoomain_ (proteins contained on `all.faa`).
+_Pandoomain_ (proteins contained on `all.faa`).
 
 The annotation is performed by [`interproscan.sh`](https://github.com/ebi-pf-team/interproscan).
 

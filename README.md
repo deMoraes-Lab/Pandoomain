@@ -13,7 +13,7 @@
 
 ## v2.0.1
 
-The maintained version of *pandoomain* lives at
+The maintained version of *Pandoomain* lives at
 <https://github.com/deMoraes-Lab/Pandoomain>.
 Please open issues and pull requests there.
 
@@ -30,7 +30,7 @@ Please open issues and pull requests there.
 
 ## Description
 
-*pandoomain* is a [*Snakemake pipeline*](https://snakemake.github.io/) designed for:
+*Pandoomain* is a [*Snakemake pipeline*](https://snakemake.github.io/) designed for:
 
 - Downloading genomes.
 - Searching proteins using *Hidden Markov Models* (HMMs).
@@ -46,7 +46,7 @@ Some biological questions are better approached at the domain level rather than 
 
 ### Domain Representation
 
-*pandoomain* encodes a *domain architecture* as a string, offering several advantages:
+*Pandoomain* encodes a *domain architecture* as a string, offering several advantages:
 
 - Existing libraries for string distance can be directly applied.
 - Easier human inspection of raw tables.
@@ -152,7 +152,7 @@ to the `snakemake` command.
    Choose it from your own alignment; the tool deliberately has no default.
 
    `--ga`, `--nc`, `--desc`, `--bm` and `--sm` are optional and follow Pfam
-   convention; pandoomain itself does not read them.
+   convention; Pandoomain itself does not read them.
 
    See [docs/hmm_curator.md](docs/hmm_curator.md) for the full guide, including
    how to choose `TC`.
@@ -250,7 +250,7 @@ Everything should now be set up and ready to run. 🚀
 
 ## Citation
 
-If you use *pandoomain*, please cite:
+If you use *Pandoomain*, please cite:
 
 > Soto EB, Oliver AJ, de Moraes MH. 2026. Pandoomain, a scalable pipeline for
 > genomic and protein domain context analysis, reveals widespread PT-TG domain

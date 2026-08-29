@@ -1,6 +1,6 @@
 # `hmm_curator.py`
 
-Adds the two fields that *pandoomain* needs to an HMM profile built with
+Adds the two fields that *Pandoomain* needs to an HMM profile built with
 `hmmbuild`.
 
 ---
@@ -18,7 +18,7 @@ Adds the two fields that *pandoomain* needs to an HMM profile built with
 
 ## Why it is needed
 
-Profiles downloaded from Pfam or InterPro work as *pandoomain* queries with no
+Profiles downloaded from Pfam or InterPro work as *Pandoomain* queries with no
 extra steps. Profiles you build yourself do not, because `hmmbuild` does not
 write two fields that the pipeline reads:
 
@@ -42,7 +42,7 @@ AttributeError: 'NoneType' object has no attribute 'decode'
 The second one is the more confusing failure, because the search itself
 succeeds and the error appears only when the hit is parsed.
 
-`GA`, `NC`, `DESC`, `BM` and `SM` are Pfam convention. *pandoomain* does not
+`GA`, `NC`, `DESC`, `BM` and `SM` are Pfam convention. *Pandoomain* does not
 read them. They are written only if you ask for them.
 
 ---
