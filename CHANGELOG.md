@@ -96,14 +96,25 @@ layouts.
 
 ### Added
 
-- The published reference, as a single citation link in the browser footer
-  pointing at the DOI, and a `Citation` section in the README:
+- The published reference, in two places in the browser and as a `Citation`
+  section in the README. Both browser links point at
+  <https://doi.org/10.1128/msystems.00427-26>.
+
+  Short form, in the header beside the repository link:
+
+  > Cite: Soto EB, Oliver AJ, de Moraes MH. 2026, mSystems 11:e00427-26.
+
+  Full form, in the footer:
 
   > Reference: Soto EB, Oliver AJ, de Moraes MH. 2026. Pandoomain, a scalable
   > pipeline for genomic and protein domain context analysis, reveals widespread
   > PT-TG domain architectural diversity and novel polymorphic toxins. mSystems
-  >
-  > <https://doi.org/10.1128/msystems.00427-26>
+
+  The branding column is capped at `lg:max-w-sm` so the header citation wraps
+  within the column instead of widening it and squeezing the Load Data area,
+  which is the failure this release fixed. Re-checked at 768, 1024, 1280 and
+  1900 px with real viewport resizes: no overflow, no column overlap and no
+  horizontal page scroll at any of them.
 
 - Optional **"Show Pfam domains inside gene arrows"** toggle in the Explore
   header. This implements the `// Render domains inside gene block` block that

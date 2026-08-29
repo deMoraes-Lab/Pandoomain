@@ -113,7 +113,9 @@
                 <!-- shrink-0 keeps this column at its content width. Without it the
                      right column's flex-grow squeezed it and the <h1> overflowed
                      across the gap into the Load Data area. -->
-                <div class="flex flex-col items-center lg:items-start gap-2 lg:shrink-0">
+                <!-- max-w-sm caps this column so the citation line wraps instead of
+                     widening the column and squeezing the Load Data area again. -->
+                <div class="flex flex-col items-center lg:items-start gap-2 lg:shrink-0 lg:max-w-sm">
                     <div class="flex items-center gap-4">
                         <img src="logo-browser.svg" alt="Pandoomain Logo" class="h-20 w-20 shrink-0">
                         <h1 class="text-3xl xl:text-4xl font-bold text-gray-800 leading-tight whitespace-nowrap">
@@ -124,6 +126,8 @@
                             class="text-gray-600 hover:text-blue-600 font-medium">
                             github.com/deMoraes-Lab/Pandoomain
                         </a>
+                        <a href="https://doi.org/10.1128/msystems.00427-26" target="_blank" rel="noopener"
+                            class="text-gray-600 hover:text-blue-600 font-medium text-center lg:text-left">Cite: Soto EB, Oliver AJ, de Moraes MH. 2026, mSystems 11:e00427-26.</a>
                     </div>
                 </div>
 
