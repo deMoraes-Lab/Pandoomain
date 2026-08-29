@@ -77,7 +77,35 @@ near-white and near-black bands that were invisible against the track. Replaced
 by `domainColor`, which hashes into hue only and pins saturation (62–79%) and
 lightness (55–66%). `stringToColor` is retained as an alias.
 
+#### Header: title no longer overflows into the Load Data column
+
+The branding column and the upload column sat in the same flex row, but the
+upload column carried `flex-grow max-w-4xl w-full`. The `w-full` made it demand
+the container's whole width, squeezing the branding column below its content
+width; the `<h1>` then overflowed its own column and ran into the upload area.
+Measured between 1024 px and 1280 px, the title's right edge reached 359 px
+while its column ended at 271-312 px, crossing into an upload column that began
+at 303 px.
+
+The branding column is now `lg:shrink-0` so it keeps its content width, and the
+upload column is `flex-grow min-w-0 max-w-4xl` rather than `w-full`. The title
+also scales (`text-3xl xl:text-4xl`) and the logo is slightly smaller. Checked
+at 768, 900, 1024, 1100, 1200, 1280, 1366, 1440, 1600, 1900 and 2100 px: no
+overflow and no column overlap at any width, in both the stacked and side-by-side
+layouts.
+
 ### Added
+
+- The published reference, as a citation footer on every page of the browser and
+  a `Citation` section in the README:
+
+  > Soto EB, Oliver AJ, de Moraes MH. 2026. Pandoomain, a scalable pipeline for
+  > genomic and protein domain context analysis, reveals widespread PT-TG domain
+  > architectural diversity and novel polymorphic toxins. mSystems 11:e00427-26.
+  > <https://doi.org/10.1128/msystems.00427-26>
+
+  The header also carries a short `Cite: mSystems (2026)` link to the DOI,
+  alongside the repository link.
 
 - Optional **"Show Pfam domains inside gene arrows"** toggle in the Explore
   header. This implements the `// Render domains inside gene block` block that

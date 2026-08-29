@@ -110,19 +110,29 @@
                 class="bg-white p-6 rounded-lg shadow-md mb-6 flex flex-col lg:flex-row items-center justify-between gap-8">
 
                 <!-- Left: Branding -->
-                <div class="flex flex-col items-center lg:items-start space-y-2">
+                <!-- shrink-0 keeps this column at its content width. Without it the
+                     right column's flex-grow squeezed it and the <h1> overflowed
+                     across the gap into the Load Data area. -->
+                <div class="flex flex-col items-center lg:items-start gap-2 lg:shrink-0">
                     <div class="flex items-center gap-4">
-                        <img src="logo-browser.svg" alt="Pandoomain Logo" class="h-24 w-24">
-                        <h1 class="text-4xl font-bold text-gray-800">Pandoomain<br>Browser</h1>
+                        <img src="logo-browser.svg" alt="Pandoomain Logo" class="h-20 w-20 shrink-0">
+                        <h1 class="text-3xl xl:text-4xl font-bold text-gray-800 leading-tight whitespace-nowrap">
+                            Pandoomain<br>Browser</h1>
                     </div>
-                    <a href="https://github.com/deMoraes-Lab/Pandoomain" target="_blank"
-                        class="text-gray-600 hover:text-blue-600 text-sm font-medium">
-                        https://github.com/deMoraes-Lab/Pandoomain
-                    </a>
+                    <div class="flex flex-col items-center lg:items-start gap-1 text-sm">
+                        <a href="https://github.com/deMoraes-Lab/Pandoomain" target="_blank" rel="noopener"
+                            class="text-gray-600 hover:text-blue-600 font-medium">
+                            github.com/deMoraes-Lab/Pandoomain
+                        </a>
+                        <a href="https://doi.org/10.1128/msystems.00427-26" target="_blank" rel="noopener"
+                            class="text-gray-600 hover:text-blue-600 font-medium">
+                            Cite: mSystems (2026)
+                        </a>
+                    </div>
                 </div>
 
                 <!-- Right: Load Data -->
-                <div class="flex-grow max-w-4xl w-full">
+                <div class="flex-grow min-w-0 max-w-4xl">
                     <h2 class="text-2xl font-semibold mb-4 text-gray-700">1. Load Data</h2>
                     <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
                         <div class="flex flex-col">
@@ -207,6 +217,18 @@
                 </div>
             </section>
         </main>
+
+        <footer class="mt-8 mb-4 text-sm text-gray-600 border-t border-gray-200 pt-4">
+            <p class="font-semibold text-gray-700 mb-1">Citation</p>
+            <p>
+                Soto EB, Oliver AJ, de Moraes MH. 2026.
+                Pandoomain, a scalable pipeline for genomic and protein domain context analysis,
+                reveals widespread PT-TG domain architectural diversity and novel polymorphic
+                toxins. mSystems 11:e00427-26.
+                <a href="https://doi.org/10.1128/msystems.00427-26" target="_blank" rel="noopener"
+                    class="text-blue-600 hover:underline break-all">https://doi.org/10.1128/msystems.00427-26</a>
+            </p>
+        </footer>
     </div>
 
     <script>

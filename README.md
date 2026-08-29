@@ -25,6 +25,7 @@ https://github.com//deMoraes-Lab/Pandoomain
 - [Outputs](#outputs)
 - [Documentation](#documentation)
 - [Installation](#installation)
+- [Citation](#citation)
 - [Version Changes](#version-changes)
 
 ## Description
@@ -222,6 +223,17 @@ make test
 ---
 
 Everything should now be set up and ready to run. 🚀
+
+## Citation
+
+If you use *pandoomain*, please cite:
+
+> Soto EB, Oliver AJ, de Moraes MH. 2026. Pandoomain, a scalable pipeline for
+> genomic and protein domain context analysis, reveals widespread PT-TG domain
+> architectural diversity and novel polymorphic toxins. mSystems 11:e00427-26.
+> <https://doi.org/10.1128/msystems.00427-26>
+
+---
 
 ## Version Changes
 
