@@ -59,6 +59,45 @@
         .arrow-border {
             filter: drop-shadow(0 0 1px #333);
         }
+
+        /* Flat block for a gene segment continuing onto another line */
+        .gene-flat {
+            clip-path: none;
+        }
+
+        /* Continuation marker for genes split across lines */
+        .gene-cont {
+            position: absolute;
+            top: 50%;
+            transform: translateY(-50%);
+            font-size: 0.7rem;
+            color: #4B5563;
+            pointer-events: none;
+        }
+
+        /* Domain track rows in the focused-gene panel */
+        .dom-track {
+            position: relative;
+            width: 100%;
+            height: 18px;
+            background: #F3F4F6;
+            border-radius: 3px;
+        }
+
+        .dom-band {
+            position: absolute;
+            top: 2px;
+            height: 14px;
+            border-radius: 3px;
+            box-sizing: border-box;
+            border: 1px solid rgba(0, 0, 0, .25);
+        }
+
+        /* Tooltips inside scrollable panels need to escape their row */
+        .dom-band .tooltiptext,
+        .gene-seg .tooltiptext {
+            bottom: 140%;
+        }
     </style>
 </head>
 
@@ -144,7 +183,13 @@
 
             <!-- Results & Visualization -->
             <section id="results-and-viz" class="bg-white p-6 rounded-lg shadow-md">
-                <h2 class="text-2xl font-semibold mb-4 text-gray-700">3. Explore</h2>
+                <div class="flex items-center justify-between mb-4 flex-wrap gap-2">
+                    <h2 class="text-2xl font-semibold text-gray-700">3. Explore</h2>
+                    <label class="inline-flex items-center gap-2 text-sm text-gray-600 cursor-pointer select-none">
+                        <input type="checkbox" id="toggle-arrow-domains" class="cursor-pointer">
+                        Show Pfam domains inside gene arrows
+                    </label>
+                </div>
                 <div class="grid grid-cols-1 lg:grid-cols-4 gap-6">
                     <!-- Results List -->
                     <div id="results-section"
@@ -281,13 +326,21 @@
             resultsSection.appendChild(list);
         }
 
+        document.getElementById('toggle-arrow-domains').addEventListener('change', () => {
+            if (lastView) visualizeNeighborhood(lastView.genomeId, lastView.neiId);
+        });
+
         // --- Visualization Logic ---
+        let lastView = null;
+
         async function visualizeNeighborhood(genomeId, neiId) {
             // Clear previous state
             vizCanvas.innerHTML = '';
             metadataDisplay.innerHTML = '';
             focusedGeneArea.classList.add('hidden');
             focusedGeneArea.innerHTML = '';
+            focusedState = { gene: null, domains: [], sources: null };
+            lastView = { genomeId, neiId };
 
             // 1. Get Genes in Neighborhood
             const genes = neighborsDB.exec(`
@@ -331,185 +384,416 @@
             renderGenes(genes, domainMap);
         }
 
+        // Vertical geometry of a gene lane, in px.
+        const LANE_H = 26;
+        const LANE_GAP = 4;
+        const AXIS_PAD = 6;
+        // Height reserved *inside* each line box for its coordinate ruler.
+        // The ruler used to be drawn above the box with a negative offset,
+        // which left it dependent on the container's vertical gap; Tailwind's
+        // `space-y-2` on the canvas overrode that gap and the labels landed on
+        // the previous line's reverse-strand genes.
+        const RULER_H = 20;
+        const LINE_GAP = 20;
+
+        // Greedy interval packing. Assigns each item the lowest lane whose last
+        // occupant ends at or before the item starts, so only genuinely
+        // overlapping intervals are pushed onto separate lanes. Abutting
+        // features (end == next start) stay on the same lane.
+        // Items must be sorted by `s` ascending. Returns the lane count.
+        function packLanes(items) {
+            const laneEnds = [];
+            items.forEach(it => {
+                let lane = laneEnds.findIndex(end => end <= it.s);
+                if (lane === -1) {
+                    lane = laneEnds.length;
+                    laneEnds.push(0);
+                }
+                laneEnds[lane] = it.e;
+                it.lane = lane;
+            });
+            return laneEnds.length;
+        }
+
+        // Clip a gene against one display line and emit the visible piece.
+        // A gene wider than the remaining space used to be relocated wholesale
+        // to the start of the next line, which both misplaced it and made it
+        // collide with whatever really began there. Now it is split, and each
+        // piece is drawn at its true coordinate.
+        function segmentGene(gene, lineStart, lineEnd) {
+            const s = Math.max(gene.start, lineStart);
+            const e = Math.min(gene.end, lineEnd);
+            if (e <= s) return null;
+            return {
+                gene,
+                s,
+                e,
+                headLeft: gene.strand === '-' && s === gene.start,
+                headRight: gene.strand !== '-' && e === gene.end,
+                clippedLeft: s > gene.start,
+                clippedRight: e < gene.end,
+            };
+        }
+
         function renderGenes(genes, domainMap) {
-            const min_start = genes[0].start;
+            const min_start = Math.min(...genes.map(g => g.start));
             const max_end = Math.max(...genes.map(g => g.end));
-            const total_span = max_end - min_start;
-            const num_lines = Math.ceil(total_span / LINE_WIDTH_BP);
+            const total_span = Math.max(1, max_end - min_start);
+            const num_lines = Math.max(1, Math.ceil(total_span / LINE_WIDTH_BP));
+            const showDomains = document.getElementById('toggle-arrow-domains')?.checked;
 
-            const lineContainers = [];
             for (let i = 0; i < num_lines; i++) {
-                const lineDiv = document.createElement('div');
-                lineDiv.className = 'relative w-full h-24 mt-4 pt-2';
+                const line_start_coord = min_start + i * LINE_WIDTH_BP;
+                const line_end_coord = line_start_coord + LINE_WIDTH_BP;
 
-                // Add central axis line
+                // Split every gene against this line, then separate by strand so
+                // forward genes sit above the axis and reverse genes below.
+                const segs = genes
+                    .map(g => segmentGene(g, line_start_coord, line_end_coord))
+                    .filter(Boolean)
+                    .sort((a, b) => a.s - b.s);
+
+                const fwd = segs.filter(s => s.gene.strand !== '-');
+                const rev = segs.filter(s => s.gene.strand === '-');
+                const nFwd = packLanes(fwd);
+                const nRev = packLanes(rev);
+
+                const upper = RULER_H + nFwd * (LANE_H + LANE_GAP) + AXIS_PAD;
+                const lower = nRev * (LANE_H + LANE_GAP) + AXIS_PAD;
+
+                const lineDiv = document.createElement('div');
+                lineDiv.className = 'relative w-full';
+                lineDiv.style.height = `${upper + lower}px`;
+                // Set inline so it beats the canvas's `space-y-*` utility.
+                if (i > 0) lineDiv.style.marginTop = `${LINE_GAP}px`;
+
                 const axis = document.createElement('div');
                 axis.className = 'absolute w-full h-px bg-gray-400';
-                axis.style.top = '50%';
-                axis.style.transform = 'translateY(-50%)';
+                axis.style.top = `${upper}px`;
                 axis.style.zIndex = 0;
                 lineDiv.appendChild(axis);
 
-                // Add ruler ticks
-                const line_start_coord = min_start + i * LINE_WIDTH_BP;
-                for (let j = 0; j < 5; j++) { // 0, 3k, 6k, 9k, 12k
+                for (let j = 0; j < 5; j++) {
                     const tick = document.createElement('div');
                     tick.className = 'absolute';
                     tick.style.left = `${(j / 4) * 100}%`;
+                    tick.style.top = '0';
 
                     const label = document.createElement('span');
-                    // Base classes
-                    let labelClasses = 'absolute -top-4 text-xs text-gray-500 whitespace-nowrap';
-
-                    // Adjust alignment based on position
-                    if (j === 0) {
-                        // Left-most: default alignment
-                    } else if (j === 4) {
-                        // Right-most: shift left by 100%
-                        labelClasses += ' -translate-x-full';
-                    } else {
-                        // Middle: center align
-                        labelClasses += ' -translate-x-1/2';
-                    }
-
+                    let labelClasses = 'absolute top-0 text-xs text-gray-500 whitespace-nowrap leading-none';
+                    if (j === 4) labelClasses += ' -translate-x-full';
+                    else if (j !== 0) labelClasses += ' -translate-x-1/2';
                     label.className = labelClasses;
-                    const tick_coord = line_start_coord + j * 3000;
-                    label.textContent = tick_coord.toLocaleString();
+                    label.textContent = (line_start_coord + j * (LINE_WIDTH_BP / 4)).toLocaleString();
                     tick.appendChild(label);
                     lineDiv.appendChild(tick);
                 }
+
+                segs.forEach(seg => {
+                    const gene = seg.gene;
+                    const left_percent = ((seg.s - line_start_coord) / LINE_WIDTH_BP) * 100;
+                    const width_percent = ((seg.e - seg.s) / LINE_WIDTH_BP) * 100;
+                    const isFwd = gene.strand !== '-';
+
+                    const top = isFwd
+                        ? upper - AXIS_PAD - (seg.lane + 1) * (LANE_H + LANE_GAP)
+                        : upper + AXIS_PAD + seg.lane * (LANE_H + LANE_GAP);
+
+                    const geneDiv = document.createElement('div');
+                    geneDiv.className = 'absolute tooltip gene-seg';
+                    geneDiv.style.left = `${left_percent}%`;
+                    geneDiv.style.width = `${width_percent}%`;
+                    geneDiv.style.top = `${top}px`;
+                    geneDiv.style.height = `${LANE_H}px`;
+                    geneDiv.style.zIndex = gene.neioff === 0 ? 10 : 1;
+
+                    const arrowWrapper = document.createElement('div');
+                    arrowWrapper.className = 'h-full w-full arrow-border relative';
+
+                    const geneBlock = document.createElement('div');
+                    const shape = seg.headRight ? 'gene-arrow' : (seg.headLeft ? 'gene-arrow-rev' : 'gene-flat');
+                    geneBlock.className = `h-full w-full relative overflow-hidden ${shape}`;
+                    geneBlock.style.backgroundColor = gene.neioff === 0 ? '#FBBF24' : '#9CA3AF';
+
+                    // Optional Pfam bands drawn inside the arrow. Off by default so
+                    // the neighbourhood view stays readable; the domain detail lives
+                    // in the focused-gene panel below.
+                    if (showDomains) {
+                        const pfams = (domainMap.get(gene.pid) || []).filter(d => isPfam(d.pfam));
+                        const aaLen = pfams.length ? Math.max(...pfams.map(d => d.length)) : 0;
+                        if (aaLen > 0) {
+                            const geneBp = gene.end - gene.start;
+                            pfams.forEach(d => {
+                                // Protein coordinates run 5'->3', which is right-to-left
+                                // on the reverse strand.
+                                const f0 = (d.start - 1) / aaLen;
+                                const f1 = d.stop / aaLen;
+                                const bp0 = isFwd ? gene.start + f0 * geneBp : gene.end - f1 * geneBp;
+                                const bp1 = isFwd ? gene.start + f1 * geneBp : gene.end - f0 * geneBp;
+                                const vs = Math.max(bp0, seg.s), ve = Math.min(bp1, seg.e);
+                                if (ve <= vs) return;
+                                const band = document.createElement('div');
+                                band.className = 'absolute';
+                                band.style.left = `${((vs - seg.s) / (seg.e - seg.s)) * 100}%`;
+                                band.style.width = `${((ve - vs) / (seg.e - seg.s)) * 100}%`;
+                                band.style.top = '30%';
+                                band.style.height = '40%';
+                                band.style.backgroundColor = domainColor(d.pfam);
+                                band.style.opacity = '0.95';
+                                geneBlock.appendChild(band);
+                            });
+                        }
+                    }
+
+                    arrowWrapper.appendChild(geneBlock);
+
+                    if (seg.clippedLeft || seg.clippedRight) {
+                        const cont = document.createElement('span');
+                        cont.className = 'gene-cont';
+                        cont.textContent = seg.clippedLeft ? '«' : '»';
+                        cont.style[seg.clippedLeft ? 'left' : 'right'] = '2px';
+                        arrowWrapper.appendChild(cont);
+                    }
+
+                    const tooltipText = document.createElement('span');
+                    tooltipText.className = 'tooltiptext';
+                    tooltipText.innerHTML = `<strong>Product:</strong> ${gene.product || 'N/A'}<br>
+                                             <strong>PID:</strong> ${gene.pid}<br>
+                                             <strong>Gene:</strong> ${gene.gene || 'N/A'}<br>
+                                             <strong>Locus Tag:</strong> ${gene.locus_tag || 'N/A'}<br>
+                                             <strong>Location:</strong> ${gene.start.toLocaleString()}..${gene.end.toLocaleString()} (${gene.strand})`;
+                    geneDiv.appendChild(tooltipText);
+                    geneDiv.appendChild(arrowWrapper);
+                    geneDiv.addEventListener('click', () => showFocusedGene(gene, domainMap.get(gene.pid) || []));
+
+                    lineDiv.appendChild(geneDiv);
+                });
+
                 vizCanvas.appendChild(lineDiv);
-                lineContainers.push(lineDiv);
             }
-
-            genes.forEach(gene => {
-                const gene_length = gene.end - gene.start;
-                const relative_start = gene.start - min_start;
-                let line_index = Math.floor(relative_start / LINE_WIDTH_BP);
-                let start_pos_on_line = relative_start % LINE_WIDTH_BP;
-
-                if ((start_pos_on_line + gene_length) > LINE_WIDTH_BP && line_index + 1 < num_lines) {
-                    line_index++;
-                    start_pos_on_line = 0;
-                }
-
-                const left_percent = (start_pos_on_line / LINE_WIDTH_BP) * 100;
-                const width_percent = (gene_length / LINE_WIDTH_BP) * 100;
-
-                const geneDiv = document.createElement('div');
-                geneDiv.className = `absolute h-8 top-8 tooltip`;
-                geneDiv.style.left = `${left_percent}%`;
-                geneDiv.style.width = `${width_percent}%`;
-                geneDiv.style.zIndex = gene.neioff === 0 ? 10 : 1;
-
-                // Wrapper for the arrow shape to apply drop-shadow filter (border effect)
-                const arrowWrapper = document.createElement('div');
-                arrowWrapper.className = 'h-full w-full arrow-border';
-
-                const geneBlock = document.createElement('div');
-                geneBlock.className = `h-full w-full ${gene.strand === '+' ? 'gene-arrow' : 'gene-arrow-rev'}`;
-                geneBlock.style.backgroundColor = gene.neioff === 0 ? '#FBBF24' : '#9CA3AF'; // bg-yellow-400 or bg-gray-400
-
-                arrowWrapper.appendChild(geneBlock);
-
-                // Tooltip
-                const tooltipText = document.createElement('span');
-                tooltipText.className = 'tooltiptext';
-                tooltipText.innerHTML = `<strong>Product:</strong> ${gene.product || 'N/A'}<br>
-                                         <strong>PID:</strong> ${gene.pid}<br>
-                                         <strong>Locus Tag:</strong> ${gene.locus_tag || 'N/A'}`;
-                geneDiv.appendChild(tooltipText);
-
-                // Render domains inside gene block
-                const geneDomains = domainMap.get(gene.pid) || [];
-
-
-                geneDiv.appendChild(arrowWrapper);
-                geneDiv.addEventListener('click', () => showFocusedGene(gene, geneDomains));
-
-                if (lineContainers[line_index]) {
-                    lineContainers[line_index].appendChild(geneDiv);
-                }
-            });
         }
 
+        // InterProScan emits signatures from every member database it was run
+        // with, not just Pfam. They are stored together in iscan.db, so the
+        // viewer has to sort them out before drawing.
+        const SIGNATURE_SOURCES = [
+            ['Pfam', /^PF\d/],
+            ['NCBIfam', /^(NF\d|TIGR\d)/],
+            ['PANTHER', /^PTHR/],
+            ['Gene3D', /^G3DSA/],
+            ['SUPERFAMILY', /^SSF/],
+            ['CDD', /^(cd|sd)\d/],
+            ['SMART', /^SM\d/],
+            ['PROSITE', /^PS\d/],
+            ['PRINTS', /^PR\d/],
+            ['PIRSF', /^PIRSF/],
+            ['HAMAP', /^MF_/],
+            ['SFLD', /^SFLD/],
+            ['Coils', /^Coil/i],
+            ['MobiDB', /^mobidb/i],
+        ];
+
+        function signatureSource(acc) {
+            const a = String(acc || '');
+            const hit = SIGNATURE_SOURCES.find(([, re]) => re.test(a));
+            return hit ? hit[0] : 'Other';
+        }
+
+        function isPfam(acc) {
+            return /^PF\d/.test(String(acc || ''));
+        }
+
+        // Sources shown when the panel first opens. Pfam leads because the
+        // pipeline's architecture encoding (archs.R) is built from Pfam IDs.
+        const DEFAULT_SOURCES = ['Pfam', 'NCBIfam', 'CDD'];
+
+        let focusedState = { gene: null, domains: [], sources: null };
+
         function showFocusedGene(gene, domains) {
+            const sameGene = focusedState.gene && focusedState.gene.pid === gene.pid;
+            focusedState.gene = gene;
+            focusedState.domains = domains;
+
+            const present = [...new Set(domains.map(d => signatureSource(d.pfam)))]
+                .sort((a, b) => {
+                    const ia = SIGNATURE_SOURCES.findIndex(s => s[0] === a);
+                    const ib = SIGNATURE_SOURCES.findIndex(s => s[0] === b);
+                    return (ia < 0 ? 99 : ia) - (ib < 0 ? 99 : ib);
+                });
+
+            if (!sameGene || !focusedState.sources) {
+                const preset = present.filter(s => DEFAULT_SOURCES.includes(s));
+                focusedState.sources = new Set(preset.length ? preset : present);
+            }
+
+            renderFocusedGene(present);
+        }
+
+        function renderFocusedGene(present) {
+            const { gene, domains, sources } = focusedState;
             focusedGeneArea.innerHTML = '';
             focusedGeneArea.classList.remove('hidden');
 
             const closeBtn = document.createElement('span');
-            closeBtn.className = 'close-btn text-gray-500 hover:text-gray-800';
+            closeBtn.className = 'close-btn text-gray-500 hover:text-gray-800 text-2xl leading-none';
             closeBtn.innerHTML = '&times;';
             closeBtn.onclick = () => {
                 focusedGeneArea.classList.add('hidden');
                 focusedGeneArea.innerHTML = '';
+                focusedState = { gene: null, domains: [], sources: null };
             };
 
             const title = document.createElement('h3');
-            title.className = 'text-xl font-semibold mb-2';
+            title.className = 'text-xl font-semibold mb-1 pr-6';
             title.innerHTML = `Focused Gene: ${gene.product || 'N/A'} <span class="text-base font-normal text-gray-600">(${gene.pid})</span>`;
 
-            const backbone = document.createElement('div');
-            backbone.className = 'relative w-full h-8 bg-gray-200 rounded-full my-4';
-
-            const legendList = document.createElement('ul');
-            legendList.className = 'list-disc list-inside mt-2 text-sm';
-            const seenDomains = new Set();
-
-            if (domains.length > 0) {
-                const protein_length = domains[0].length;
-                if (protein_length > 0) {
-                    domains.forEach(domain => {
-                        const domainDiv = document.createElement('div');
-                        const domain_left = (domain.start / protein_length) * 100;
-                        const domain_width = ((domain.stop - domain.start) / protein_length) * 100;
-                        domainDiv.className = 'absolute h-full rounded-full tooltip';
-                        domainDiv.style.left = `${domain_left}%`;
-                        domainDiv.style.width = `${domain_width}%`;
-                        const color = stringToColor(domain.pfam);
-                        domainDiv.style.backgroundColor = color;
-
-                        const domainTooltip = document.createElement('span');
-                        domainTooltip.className = 'tooltiptext';
-                        domainTooltip.innerHTML = `<strong>${domain.pfam} - ${domain.pfam_desc || ''}</strong><br>Start: ${domain.start}, End: ${domain.stop}`;
-                        domainDiv.appendChild(domainTooltip);
-                        backbone.appendChild(domainDiv);
-                    });
-                }
-
-                domains.forEach(domain => {
-                    if (!seenDomains.has(domain.pfam)) {
-                        const legendItem = document.createElement('li');
-                        const color = stringToColor(domain.pfam);
-                        legendItem.innerHTML = `<span class="inline-block w-4 h-4 rounded-full mr-2" style="background-color: ${color};"></span> ${domain.pfam} - ${domain.pfam_desc || ''}`;
-                        legendList.appendChild(legendItem);
-                        seenDomains.add(domain.pfam);
-                    }
-                });
-            }
+            const subtitle = document.createElement('div');
+            subtitle.className = 'text-sm text-gray-500 mb-3';
+            const aaLen = domains.length ? Math.max(...domains.map(d => d.length || 0)) : 0;
+            subtitle.textContent = [
+                gene.gene ? `gene ${gene.gene}` : null,
+                gene.locus_tag ? `locus ${gene.locus_tag}` : null,
+                aaLen ? `${aaLen} aa` : null,
+                `${domains.length} signature${domains.length === 1 ? '' : 's'} from ${present.length} database${present.length === 1 ? '' : 's'}`,
+            ].filter(Boolean).join('  ·  ');
 
             focusedGeneArea.appendChild(closeBtn);
             focusedGeneArea.appendChild(title);
-            focusedGeneArea.appendChild(backbone);
-            if (domains.length > 0) {
+            focusedGeneArea.appendChild(subtitle);
+
+            if (!domains.length || !aaLen) {
+                const none = document.createElement('p');
+                none.className = 'text-gray-500 text-sm';
+                none.textContent = 'No domain annotations for this protein.';
+                focusedGeneArea.appendChild(none);
+                return;
+            }
+
+            // Source filter. Signatures from different databases describe the
+            // same protein redundantly, so let the user decide which to see.
+            const filterBar = document.createElement('div');
+            filterBar.className = 'flex flex-wrap gap-3 mb-3 text-xs';
+            present.forEach(srcName => {
+                const n = domains.filter(d => signatureSource(d.pfam) === srcName).length;
+                const label = document.createElement('label');
+                label.className = 'inline-flex items-center gap-1 cursor-pointer select-none';
+                const cb = document.createElement('input');
+                cb.type = 'checkbox';
+                cb.checked = sources.has(srcName);
+                cb.className = 'cursor-pointer';
+                cb.addEventListener('change', () => {
+                    if (cb.checked) sources.add(srcName);
+                    else sources.delete(srcName);
+                    renderFocusedGene(present);
+                });
+                label.appendChild(cb);
+                label.appendChild(document.createTextNode(`${srcName} (${n})`));
+                filterBar.appendChild(label);
+            });
+            focusedGeneArea.appendChild(filterBar);
+
+            // Amino-acid ruler.
+            const ruler = document.createElement('div');
+            ruler.className = 'relative w-full h-4 text-xs text-gray-500 mb-1';
+            for (let j = 0; j <= 4; j++) {
+                const t = document.createElement('span');
+                t.className = 'absolute';
+                t.style.left = `${(j / 4) * 100}%`;
+                if (j === 4) t.style.transform = 'translateX(-100%)';
+                else if (j !== 0) t.style.transform = 'translateX(-50%)';
+                t.textContent = Math.round((j / 4) * aaLen);
+                ruler.appendChild(t);
+            }
+            focusedGeneArea.appendChild(ruler);
+
+            const legendEntries = new Map();
+
+            // One stacked track per database, and within a database one row per
+            // packing lane. Previously every signature was drawn absolutely on a
+            // single backbone, so a full-length hit painted over every domain
+            // beneath it.
+            present.filter(s => sources.has(s)).forEach(srcName => {
+                const items = domains
+                    .filter(d => signatureSource(d.pfam) === srcName)
+                    .map(d => ({ ...d, s: d.start, e: d.stop }))
+                    .sort((a, b) => a.s - b.s || b.e - a.e);
+                if (!items.length) return;
+
+                const nLanes = packLanes(items);
+
+                const row = document.createElement('div');
+                row.className = 'flex items-start gap-2 mb-2';
+
+                const nameCell = document.createElement('div');
+                nameCell.className = 'w-28 shrink-0 text-xs font-semibold text-gray-600 pt-1';
+                nameCell.textContent = srcName;
+
+                const trackWrap = document.createElement('div');
+                trackWrap.className = 'flex-grow space-y-1';
+
+                for (let lane = 0; lane < nLanes; lane++) {
+                    const track = document.createElement('div');
+                    track.className = 'dom-track';
+                    items.filter(d => d.lane === lane).forEach(d => {
+                        const band = document.createElement('div');
+                        band.className = 'dom-band tooltip';
+                        band.style.left = `${((d.start - 1) / aaLen) * 100}%`;
+                        band.style.width = `${Math.max(0.4, ((d.stop - d.start + 1) / aaLen) * 100)}%`;
+                        band.style.backgroundColor = domainColor(d.pfam);
+
+                        const tip = document.createElement('span');
+                        tip.className = 'tooltiptext';
+                        tip.innerHTML = `<strong>${d.pfam}</strong><br>${d.pfam_desc || ''}<br>${d.start}&ndash;${d.stop} aa (${d.stop - d.start + 1} aa)`;
+                        band.appendChild(tip);
+                        track.appendChild(band);
+
+                        if (!legendEntries.has(d.pfam)) {
+                            legendEntries.set(d.pfam, { pfam: d.pfam, desc: d.pfam_desc, src: srcName });
+                        }
+                    });
+                    trackWrap.appendChild(track);
+                }
+
+                row.appendChild(nameCell);
+                row.appendChild(trackWrap);
+                focusedGeneArea.appendChild(row);
+            });
+
+            if (legendEntries.size) {
+                const legendList = document.createElement('ul');
+                legendList.className = 'mt-3 grid grid-cols-1 md:grid-cols-2 gap-x-6 text-sm';
+                [...legendEntries.values()].forEach(({ pfam, desc }) => {
+                    const li = document.createElement('li');
+                    li.className = 'flex items-start gap-2 py-0.5';
+                    li.innerHTML = `<span class="inline-block w-3 h-3 rounded-sm mt-1 shrink-0" style="background-color: ${domainColor(pfam)};"></span><span><strong>${pfam}</strong> ${desc ? '&ndash; ' + desc : ''}</span>`;
+                    legendList.appendChild(li);
+                });
                 focusedGeneArea.appendChild(legendList);
             }
         }
 
-
-
         // --- Utility Functions ---
-        function stringToColor(str) {
+
+        // Deterministic colour per signature accession. The previous version
+        // packed the hash straight into RGB, which produced near-white and
+        // near-black bands that were unreadable against the track. Hashing into
+        // hue only, with saturation and lightness pinned, keeps every colour
+        // legible and mutually distinguishable.
+        function domainColor(str) {
+            const s = String(str || '');
             let hash = 0;
-            for (let i = 0; i < str.length; i++) {
-                hash = str.charCodeAt(i) + ((hash << 5) - hash);
+            for (let i = 0; i < s.length; i++) {
+                hash = (s.charCodeAt(i) + ((hash << 5) - hash)) | 0;
             }
-            let color = '#';
-            for (let i = 0; i < 3; i++) {
-                let value = (hash >> (i * 8)) & 0xFF;
-                color += ('00' + value.toString(16)).substr(-2);
-            }
-            return color;
+            const hue = Math.abs(hash) % 360;
+            const sat = 62 + (Math.abs(hash >> 8) % 18);   // 62-79%
+            const light = 55 + (Math.abs(hash >> 16) % 12); // 55-66%
+            return `hsl(${hue}, ${sat}%, ${light}%)`;
+        }
+
+        // Retained under the original name for any external callers.
+        function stringToColor(str) {
+            return domainColor(str);
         }
 
     </script>

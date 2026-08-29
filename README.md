@@ -1,7 +1,7 @@
 <h1 align="center"> <img src="pics/banner.svg" width="2048"> </h1>
 
 <p align="left">
-    <a href="https://semver.org/"><img src="https://img.shields.io/badge/version-0.0.2-blue" alt="Semantic Versioning"></a>
+    <a href="https://semver.org/"><img src="https://img.shields.io/badge/version-2.0.1-blue" alt="Semantic Versioning"></a>
    <a href="https://snakemake.github.io/"><img src="https://img.shields.io/badge/snake-make-green" alt="snakemake-green"></a>
     <a href="http://choosealicense.com/licenses/mit/"><img src="https://img.shields.io/badge/license-MIT-red.svg?style=flat" alt="MIT License"></a>
 </p>
@@ -11,7 +11,7 @@
 
 ---
 
-## v2.0.0
+## v2.0.1
 
 I recommend using and sending patches
 to the upstream version that is at:
@@ -25,6 +25,7 @@ https://github.com//deMoraes-Lab/Pandoomain
 - [Outputs](#outputs)
 - [Documentation](#documentation)
 - [Installation](#installation)
+- [Version Changes](#version-changes)
 
 ## Description
 
@@ -61,8 +62,15 @@ The reasons for this are:
 ### Output visualization ###
 
 Pandoomain results can be easily visualized using the HTML GUI interface "Pandoomain Browser".
-The interface requires the user to upload the SQL files neighborhood.db, iscan.db, and metadata.db in the HTML file "pandoomain_browser/pandoomain_browser.html".
-The user will be able to search for specific genome or protein IDs that will show the respective gene neighborhhod and domains present in the protein.
+Open `pandoomain_browser/pandoomain-browser.html` in a web browser and load the three SQLite files
+produced by the pipeline in `results/browser_files/`: `neighbors.db`, `iscan.db`, and `metadata.db`.
+You can then search by genome or protein ID (`pid`) to see the corresponding gene neighborhood and
+the domains annotated on each protein.
+
+Genes are laid out on a coordinate axis with forward-strand genes above the line and reverse-strand
+genes below it; genes that overlap in coordinates are stacked onto separate lanes so none is hidden.
+Clicking a gene opens a domain panel that groups InterProScan signatures by member database
+(Pfam, NCBIfam, PANTHER, Gene3D, ...), one track each, with Pfam shown by default.
 Below is one example of Pandoomain Browser output.
 
 <h1 align="center"> <img src="pics/Pandoomain_Browser.svg" width="2048"> </h1>
@@ -204,33 +212,4 @@ Everything should now be set up and ready to run. 🚀
 
 ## Version Changes
 
-### 2.0.0
-
-+ Interactive Browser Visualization
-    + Introduced a new web-based visualizer (pandoomain-browser.html) allowing users to interactively explore pipeline outputs.
-    + The pipeline now automatically generates formatted SQLite database files (iscan.db, metadata.db, neighbors.db) natively supported by the new browser interface.
-
-+ Updated utils/install_Rlibs.R to use pak to install R packages
-
-+ Enhanced Protein Domain Encoding
-    + Upgraded the domain architecture encoding system in archs.R to support a massive number of unique protein domains.
-    + Replaced the standard single-letter code with a high-stability, high-contrast Unicode pool. Orioritizes geometric shapes and multiple universal alphabets (Latin, Greek, Cyrillic, Armenian, Devanagari) ensuring left-to-right reading stability across massive datasets.
-
-+ Improved InterProScan Execution
-    + Rewrote the interproscan execution logic in the Snakemake workflow for increased reliability and performance.
-Transitioned from a Python-wrapped execution to a direct bash execution model that efficiently processes chunks of .faa files, with built-in error handling for missing files and failed jobs.
-
-### 0.0.2
-
-+ Removal of *hmmer_input rule*.
-    + It's simpler to just use the `genomes.tsv` as input for the _hmmer rule_.
-+ Removal of preprocessing rule for `genomes.txt`.
-    + Now the dependant rules can parse `genomes.txt` directly.
-+ Fixed taxallnomy bug, caused by an updated DB.
-    + taxallnomy now has 43 cols instead of 42.
-+ Removal of utils.py
-
-
-
-
-
+See [CHANGELOG.md](CHANGELOG.md).
