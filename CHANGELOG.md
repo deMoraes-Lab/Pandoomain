@@ -143,6 +143,35 @@ downloaded, ~60 GB installed). The dry flag is now spelled `--dry-run`, which
 is what the script actually declares; `--dry` worked only via argparse prefix
 matching and would have broken silently had another `--dry*` option been added.
 
+#### No shell configuration needed after installing InterProScan
+
+The installer told the user to add the installation directory to `~/.bashrc`,
+even though it had just created a working symlink at `~/.local/bin/interproscan.sh`.
+The warning was a false alarm: it tested `os.environ["PATH"]`, but the stock
+`~/.profile` only adds `~/.local/bin` to PATH `if [ -d "$HOME/.local/bin" ]` at
+*login*. On a fresh machine the directory does not exist yet, so the installer
+created it and then checked a PATH that was fixed before it existed. The link
+worked in every later shell regardless.
+
+`setup_path_access` now:
+
+- Also links into `$CONDA_PREFIX/bin` when a conda environment is active. This
+  is the dependable location for the pipeline, since the environment supplies
+  `java`, `snakemake` and R and therefore has to be active anyway, and its `bin`
+  is always first on PATH while it is. (The link belongs to the environment, so
+  recreating the environment means re-running `make install-iscan`.)
+- Determines reachability from the PATH a *new login shell* would see, rather
+  than the current process's, so the "ACTION REQUIRED" banner appears only when
+  the command genuinely cannot be found.
+
+Linking is safe: `interproscan.sh` resolves its own symlinks, walking
+`BASH_SOURCE` and `cd`-ing to the real installation directory before locating
+`interproscan-5.jar` and its data.
+
+Verified on the deployment VM: with the environment active, `interproscan.sh`
+resolves to `$CONDA_PREFIX/bin` and `interproscan.sh --version` runs correctly
+from an unrelated working directory with no shell rc changes.
+
 #### `utils/install_iscan.py` is executable
 
 The file was recorded in git as mode `100644`, while every other script the

@@ -97,37 +97,98 @@ def check_bundled_binaries(iscan_dir):
     return True
 
 
+def login_shell_path() -> str:
+    """PATH as a *new* login shell would see it.
+
+    Checking os.environ["PATH"] is not enough to decide whether a directory is
+    reachable: this process may have just created it, and the current session's
+    PATH was fixed at login.
+    """
+    try:
+        done = sp.run(
+            ["bash", "-lc", 'printf %s "$PATH"'],
+            capture_output=True,
+            text=True,
+            timeout=30,
+        )
+        return done.stdout
+    except Exception:
+        return ""
+
+
 def setup_path_access(bin_path, dry=False):
     """
-    Helper to make the binary accessible via PATH or symlink.
+    Make interproscan.sh reachable by name, without editing shell rc files.
+
+    interproscan.sh resolves its own symlinks -- it walks BASH_SOURCE and cds to
+    the real installation directory -- so linking it elsewhere is supported and
+    keeps its data paths intact.
+
+    Two locations are linked:
+
+    - `$CONDA_PREFIX/bin`, when a conda environment is active. This is the
+      dependable one for this pipeline: the environment also supplies java,
+      snakemake and R, so it has to be active to run anything anyway, and its
+      bin directory is always first on PATH while it is.
+    - `~/.local/bin`, so the command also works outside the environment.
     """
     bin_path = Path(bin_path).resolve()
-    local_bin = Path.home() / ".local" / "bin"
-    
+
+    conda_prefix = os.environ.get("CONDA_PREFIX")
+    conda_bin = Path(conda_prefix) / "bin" if conda_prefix else None
+
+    targets = ([conda_bin] if conda_bin else []) + [Path.home() / ".local" / "bin"]
+
     print("\n# Finalizing Path Access")
-    
-    if not dry:
-        local_bin.mkdir(parents=True, exist_ok=True)
-        link_path = local_bin / "interproscan.sh"
+
+    linked = []
+    for directory in targets:
+        link_path = directory / "interproscan.sh"
+
+        if dry:
+            print(f"mkdir -p {directory}")
+            print(f"ln -sf {bin_path} {link_path}")
+            linked.append(directory)
+            continue
+
         try:
+            directory.mkdir(parents=True, exist_ok=True)
             if link_path.exists() or link_path.is_symlink():
                 link_path.unlink()
             link_path.symlink_to(bin_path)
-            print(f"SUCCESS: Created symlink at {link_path}")
-        except Exception as e:
-            print(f"NOTICE: Could not create symlink: {e}")
-    else:
-        print(f"mkdir -p {local_bin}")
-        print(f"ln -s {bin_path} {local_bin}/interproscan.sh")
+            print(f"SUCCESS: linked {link_path} -> {bin_path}")
+            linked.append(directory)
+        except Exception as error:
+            print(f"NOTICE: could not link into {directory}: {error}")
 
-    current_path = os.environ.get("PATH", "")
-    if str(bin_path.parent) not in current_path and str(local_bin) not in current_path:
-        print("\n" + "!"*60)
-        print("ACTION REQUIRED: To run InterProScan from anywhere, add it to your PATH.")
-        print(f"Add this line to your ~/.bashrc (or ~/.zshrc):")
-        print(f'\nexport PATH="$PATH:{bin_path.parent}"\n')
-        print("Then run: source ~/.bashrc")
-        print("!"*60 + "\n")
+    if dry:
+        return
+
+    if conda_bin is not None and conda_bin in linked:
+        env_name = Path(conda_prefix).name
+        print(
+            f"\ninterproscan.sh is on PATH whenever the '{env_name}' "
+            "environment is active."
+        )
+        print("No shell configuration is needed.")
+        return
+
+    # ~/.local/bin is added to PATH by the stock ~/.profile, but only when it
+    # already exists at login. If this run just created it, the directory is
+    # reachable in new shells even though it is absent from this process's PATH.
+    future_path = login_shell_path()
+    if any(str(directory) in future_path for directory in linked):
+        print("\ninterproscan.sh will be on PATH in new shells.")
+        print("No shell configuration is needed.")
+        print("To use it in this shell without reopening it, run:  hash -r")
+        return
+
+    print("\n" + "!" * 60)
+    print("ACTION REQUIRED: interproscan.sh could not be placed on PATH.")
+    print("Add this line to your ~/.bashrc (or ~/.zshrc):")
+    print(f'\nexport PATH="$PATH:{bin_path.parent}"\n')
+    print("Then run: source ~/.bashrc")
+    print("!" * 60 + "\n")
 
 
 # iscan defaults

@@ -201,6 +201,12 @@ To see the steps it would run without changing anything:
 make install-iscan-dry
 ```
 
+The installer links `interproscan.sh` into the active conda environment's `bin`
+(and into `~/.local/bin`), so it is on `PATH` whenever the `pandoomain`
+environment is active. No `~/.bashrc` edit is required. If you recreate the
+conda environment, re-run `make install-iscan` to restore the link; the
+downloaded data is reused.
+
 #### 5. Install R Libraries
 
 ```sh
