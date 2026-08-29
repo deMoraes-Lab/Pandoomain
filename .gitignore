@@ -15,3 +15,5 @@ __pycache__
 .Rhistory
 .RData
 .Ruserdata
+
+.DS_Store
