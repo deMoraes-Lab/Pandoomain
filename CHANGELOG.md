@@ -96,16 +96,14 @@ layouts.
 
 ### Added
 
-- The published reference, as a citation footer on every page of the browser and
-  a `Citation` section in the README:
+- The published reference, as a single citation link in the browser footer
+  pointing at the DOI, and a `Citation` section in the README:
 
-  > Soto EB, Oliver AJ, de Moraes MH. 2026. Pandoomain, a scalable pipeline for
-  > genomic and protein domain context analysis, reveals widespread PT-TG domain
-  > architectural diversity and novel polymorphic toxins. mSystems 11:e00427-26.
+  > Reference: Soto EB, Oliver AJ, de Moraes MH. 2026. Pandoomain, a scalable
+  > pipeline for genomic and protein domain context analysis, reveals widespread
+  > PT-TG domain architectural diversity and novel polymorphic toxins. mSystems
+  >
   > <https://doi.org/10.1128/msystems.00427-26>
-
-  The header also carries a short `Cite: mSystems (2026)` link to the DOI,
-  alongside the repository link.
 
 - Optional **"Show Pfam domains inside gene arrows"** toggle in the Explore
   header. This implements the `// Render domains inside gene block` block that
