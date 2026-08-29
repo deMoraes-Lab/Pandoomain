@@ -124,6 +124,44 @@ layouts.
   default, so the neighborhood view stays legible.
 - Gene tooltips now also report gene name and genomic location.
 
+#### `utils/hmm_curator.py`
+
+A tool to add the fields `hmmbuild` does not write. `hmmbuild` emits no `ACC`
+and no bit-score cutoffs, while Pfam-distributed profiles carry both, which is
+why Pfam HMMs work as queries and freshly built ones do not.
+`workflow/scripts/hmmer.py` requires exactly two of them, confirmed against
+pyhmmer 0.10.14:
+
+| Profile state | Result |
+|---|---|
+| Raw `hmmbuild` output | `MissingCutoffs: Model 'aln' is missing 'trusted' bitscore cutoff` |
+| `TC` added, no `ACC` | Search runs, then `AttributeError: 'NoneType' object has no attribute 'decode'` |
+| `TC` + `ACC` added | Works |
+
+`TC` is needed because the search runs with `bit_cutoffs="trusted"`; `ACC` is
+read as `hits.query_accession` and becomes the `query` column of `hmmer.tsv`.
+`GA`, `NC`, `DESC`, `BM` and `SM` are Pfam convention, are not read by the
+pipeline, and are written only when supplied.
+
+```sh
+utils/hmm_curator.py TssM.hmm --acc TssM.1 --tc 24.6 -o queries/TssM.hmm
+```
+
+Both values are required arguments. `TC` sets the sensitivity of the entire
+search and is curated per family in Pfam, so the tool has no default for it.
+
+The tool re-curates cleanly: fields it owns are replaced rather than duplicated,
+and it warns when an existing one is being dropped. It writes to standard output
+by default, or to `-o`, or over the input with `--in-place` (keeping a `.bak`).
+Files holding several profiles are refused unless `--allow-multi` is given, since
+one accession cannot describe more than one model. When pyhmmer is available it
+verifies the result after writing, reporting the recorded accession and cutoff.
+
+This replaces an earlier draft kept outside the repository, which hardcoded
+`GA/TC/NC 24.6/24.6/24.5` for every profile, appended fields without removing
+existing ones (so re-running duplicated them), and carried a regular expression
+intended to rewrite the emission header that never matched HMMER3 output.
+
 ### Removed
 
 - The `browser/` directory. It was a byte-identical duplicate of
@@ -239,8 +277,6 @@ The following items from the v2.0.1 plan are **not** included here:
   (`--applications`). This is the upstream half of the occlusion problem: the
   browser fix makes the signature soup readable, but restricting it at search
   time would also cut InterProScan runtime substantially.
-- A utility to format HMM files (`hmm4pandoomain/hmm_curator.py` is not yet
-  wired into `utils/`).
 
 ---
 

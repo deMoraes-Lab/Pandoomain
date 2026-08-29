@@ -129,6 +129,32 @@ to the `snakemake` command.
 
 2. **HMM Directory**: A directory containing `.hmm` files, which can be obtained from the *InterPro database* or manually generated from alignments.
 
+   Profiles built yourself with `hmmbuild` need two fields that `hmmbuild` does
+   not write, and that Pfam-distributed profiles already carry:
+
+   - `TC`, the trusted cutoff. The search runs with `bit_cutoffs="trusted"`, so
+     without it the pipeline stops at
+     `MissingCutoffs: Model '<name>' is missing 'trusted' bitscore cutoff`.
+   - `ACC`, the accession. It becomes the `query` column of `hmmer.tsv` and the
+     `queries` column of `neighbors.tsv`. Without it the search succeeds and
+     then fails with `AttributeError: 'NoneType' object has no attribute 'decode'`.
+
+   [`utils/hmm_curator.py`](utils/hmm_curator.py) adds them:
+
+   ```sh
+   utils/hmm_curator.py TssM.hmm --acc TssM.1 --tc 24.6 -o queries/TssM.hmm
+   ```
+
+   `TC` is a scientific parameter, not boilerplate: it is the bit score below
+   which a hit is not treated as a true member of the family, and it sets the
+   sensitivity of the whole search. Pfam curates it per family, typically as the
+   score of the lowest-scoring known true positive, so it differs between models.
+   Choose it from your own alignment; the tool deliberately has no default.
+
+   `--ga`, `--nc`, `--desc`, `--bm` and `--sm` are optional and follow Pfam
+   convention; pandoomain itself does not read them. Run with `--help` for the
+   full list.
+
 ---
 
 ## Outputs
