@@ -46,6 +46,12 @@ def create_indexes(conn: sqlite3.Connection, table_name: str) -> None:
         
         print("  ...Composite Index on (genome, nei)")
         cursor.execute(f"CREATE INDEX idx_genome_nei ON {table_name} (genome, nei);")
+
+        # The browser searches `WHERE genome = :term OR pid = :term`. Without an
+        # index on pid that OR degrades to a full table scan; with it SQLite can
+        # use a MULTI-INDEX OR and search both sides.
+        print("  ...Index on 'pid'")
+        cursor.execute(f"CREATE INDEX idx_neighbors_pid ON {table_name} (pid);")
         
         print("  ...Indexes created.")
     except Exception as e:
@@ -99,6 +105,29 @@ def tsv_to_sqlite(input_tsv: str, output_db: str, chunk_size: int = 100000) -> N
             "contig": "contig",
             "queries": "queries",
         }
+
+        # Older pipeline versions wrote the neighborhood columns already named
+        # nei/neioff rather than neid/neoff. Accept either spelling so results
+        # from those runs can still be converted.
+        with open(input_tsv, encoding="utf-8") as probe:
+            header = probe.readline().rstrip("\n").split("\t")
+
+        aliases = {"neid": ("neid", "nei"), "neoff": ("neoff", "neioff")}
+        resolved = {}
+        for source, target in cols_to_read.items():
+            names = aliases.get(source, (source,))
+            found = next((n for n in names if n in header), None)
+            if found is None:
+                print(
+                    f"ERROR: no column for '{target}' in {input_tsv} "
+                    f"(looked for {', '.join(names)})",
+                    file=sys.stderr,
+                )
+                sys.exit(1)
+            if found != source:
+                print(f"  ...reading '{found}' as '{target}'")
+            resolved[found] = target
+        cols_to_read = resolved
 
         print(f"Reading and loading chunks from {input_tsv}...")
         

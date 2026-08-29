@@ -80,6 +80,16 @@ def tsv_to_sqlite(input_tsv: str, output_db: str, chunk_size: int = 100000) -> N
         cols_to_use = [0, 1, 2, 3, 7, 8]
         col_names = ["pid", "start", "stop", "length", "pfam", "pfam_desc"]
 
+        # add_header_iscan.R writes a header, but the columns are taken by
+        # position, so the file is parsed with header=None. Without this the
+        # header line is loaded as a row: pid='pid', start/stop/length coerced
+        # to 0, pfam='memberDB'.
+        with open(input_tsv, encoding="utf-8") as probe:
+            first = probe.readline().split("\t")
+        skiprows = 1 if first and first[0].strip() == "pid" else 0
+        if skiprows:
+            print("Detected a header line; skipping it.")
+
         print(f"Reading and loading chunks from {input_tsv}...")
         
         # Specify dtypes to avoid warnings and mixed type issues
@@ -101,6 +111,7 @@ def tsv_to_sqlite(input_tsv: str, output_db: str, chunk_size: int = 100000) -> N
             dtype=dtypes,
             low_memory=False,
             comment="#",
+            skiprows=skiprows,
         )
 
         for i, chunk in enumerate(reader):
