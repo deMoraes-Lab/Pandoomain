@@ -126,24 +126,6 @@ def count_models(lines: List[str]) -> int:
     return sum(1 for line in lines if line.startswith(MODEL_START))
 
 
-def split_models(lines: List[str]) -> List[List[str]]:
-    """Splits an HMM file into its individual profiles.
-
-    Args:
-        lines: The file's lines.
-
-    Returns:
-        One list of lines per profile. Anything before the first profile header
-        is attached to the first profile.
-    """
-    models: List[List[str]] = []
-    for line in lines:
-        if line.startswith(MODEL_START) or not models:
-            models.append([])
-        models[-1].append(line)
-    return models
-
-
 def field_of(line: str) -> Optional[str]:
     """Returns the header field a line defines, if any.
 
@@ -168,6 +150,9 @@ def curate(
     sm: Optional[str] = None,
 ) -> List[str]:
     """Inserts the requested metadata into one HMM profile.
+
+    The caller guarantees the input holds exactly one profile; the insertion
+    points are taken once and not reset.
 
     Any field this tool manages is dropped before insertion, so curating an
     already-curated profile replaces the old values instead of duplicating the
@@ -272,21 +257,16 @@ def verify(path: Path) -> Optional[str]:
         return None
 
     with HMMFile(path) as handle:
-        models = list(handle)
+        model = next(iter(handle))
 
-    notes = []
-    for model in models:
-        name = model.name.decode() if model.name else "<unnamed>"
-        if model.cutoffs.trusted is None:
-            notes.append(f"{name}: TC still missing")
-        elif model.accession is None:
-            notes.append(f"{name}: ACC still missing")
-        else:
-            sequence, domain = model.cutoffs.trusted
-            notes.append(
-                f"{name}: ACC={model.accession.decode()} TC={sequence:g}/{domain:g}"
-            )
-    return "; ".join(notes)
+    name = model.name.decode() if model.name else "<unnamed>"
+    if model.cutoffs.trusted is None:
+        return f"{name}: TC still missing"
+    if model.accession is None:
+        return f"{name}: ACC still missing"
+
+    sequence, domain = model.cutoffs.trusted
+    return f"{name}: ACC={model.accession.decode()} TC={sequence:g}/{domain:g}"
 
 
 def parse_args(argv: Optional[List[str]] = None) -> argparse.Namespace:
@@ -350,14 +330,6 @@ def parse_args(argv: Optional[List[str]] = None) -> argparse.Namespace:
         help="overwrite the input, keeping a .bak copy",
     )
 
-    parser.add_argument(
-        "--allow-multi",
-        action="store_true",
-        help=(
-            "permit a file holding several profiles. Refused by default: one "
-            "accession cannot describe more than one model."
-        ),
-    )
     return parser.parse_args(argv)
 
 
@@ -397,30 +369,27 @@ def main() -> None:
         sys.exit(f"not a HMMER3 profile (first line is {lines[0].strip()!r})")
 
     models = count_models(lines)
-    if models > 1 and not args.allow_multi:
+    if models > 1:
         sys.exit(
-            f"{args.hmm} holds {models} profiles, but --acc gives a single "
-            "accession. Split the file, or pass --allow-multi to write the "
-            "same accession and cutoffs into every model."
+            f"{args.hmm} holds {models} profiles. This tool curates one "
+            "profile at a time, because a single --acc cannot describe more "
+            "than one model. Split the file first, for example with "
+            "`hmmfetch --index` and `hmmfetch`."
         )
 
-    curated: List[str] = []
-    for index, model in enumerate(split_models(lines), start=1):
-        try:
-            curated.extend(
-                curate(
-                    model,
-                    acc=args.acc,
-                    tc=as_pair(args.tc, "--tc"),
-                    ga=as_pair(args.ga, "--ga"),
-                    nc=as_pair(args.nc, "--nc"),
-                    desc=args.desc,
-                    bm=args.bm,
-                    sm=args.sm,
-                )
-            )
-        except ValueError as error:
-            sys.exit(f"{args.hmm}: profile {index}: {error}")
+    try:
+        curated = curate(
+            lines,
+            acc=args.acc,
+            tc=as_pair(args.tc, "--tc"),
+            ga=as_pair(args.ga, "--ga"),
+            nc=as_pair(args.nc, "--nc"),
+            desc=args.desc,
+            bm=args.bm,
+            sm=args.sm,
+        )
+    except ValueError as error:
+        sys.exit(f"{args.hmm}: {error}")
 
     text = "".join(curated)
 

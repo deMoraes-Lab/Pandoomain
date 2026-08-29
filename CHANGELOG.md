@@ -153,7 +153,7 @@ search and is curated per family in Pfam, so the tool has no default for it.
 The tool re-curates cleanly: fields it owns are replaced rather than duplicated,
 and it warns when an existing one is being dropped. It writes to standard output
 by default, or to `-o`, or over the input with `--in-place` (keeping a `.bak`).
-Files holding several profiles are refused unless `--allow-multi` is given, since
+It curates exactly one profile per run: a file holding several is refused, since
 one accession cannot describe more than one model. When pyhmmer is available it
 verifies the result after writing, reporting the recorded accession and cutoff.
 
