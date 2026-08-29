@@ -152,8 +152,10 @@ to the `snakemake` command.
    Choose it from your own alignment; the tool deliberately has no default.
 
    `--ga`, `--nc`, `--desc`, `--bm` and `--sm` are optional and follow Pfam
-   convention; pandoomain itself does not read them. Run with `--help` for the
-   full list.
+   convention; pandoomain itself does not read them.
+
+   See [docs/hmm_curator.md](docs/hmm_curator.md) for the full guide, including
+   how to choose `TC`.
 
 ---
 

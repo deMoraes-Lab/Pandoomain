@@ -16,6 +16,7 @@
   - [Example Output Directory Structure](#example-output-directory-structure)
   - [Filegraph](#filegraph)
   - [Key Output Files](#key-output-files)
+- [Preparing your own HMMs](hmm_curator.md)
 
 ## Input
 
