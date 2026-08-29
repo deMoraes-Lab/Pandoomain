@@ -13,9 +13,9 @@
 
 ## v2.0.1
 
-I recommend using and sending patches
-to the upstream version that is at:
-https://github.com//deMoraes-Lab/Pandoomain
+The maintained version of *pandoomain* lives at
+<https://github.com/deMoraes-Lab/Pandoomain>.
+Please open issues and pull requests there.
 
 ## Contents
 
@@ -194,8 +194,8 @@ For a guide on cloud deployment, see: [deploy-pandoomain](https://github.com/elb
 #### 1. Clone the repository
 
 ```sh
-git clone 'https://github.com/elbecerrasoto/pandoomain'
-cd pandoomain
+git clone 'https://github.com/deMoraes-Lab/Pandoomain'
+cd Pandoomain
 ```
 
 #### 2. Install an Anaconda Distribution

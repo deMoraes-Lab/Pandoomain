@@ -152,7 +152,7 @@ git-config:
 
 .PHONY: git-add-upstream
 git-add-upstream:
-	git remote add upstream https://github.com/elbecerrasoto/pandoomain
+	git remote add upstream https://github.com/deMoraes-Lab/Pandoomain
 
 
 .PHONY: clean
