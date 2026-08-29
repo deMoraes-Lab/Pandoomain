@@ -185,10 +185,6 @@ The most complex dependency is *interproscan.sh*, so a helper script is included
 
 The pipeline runs through the *Snakemake* framework.
 
-### Cloud Installation
-
-For a guide on cloud deployment, see: [deploy-pandoomain](https://github.com/elbecerrasoto/deploy-pandoomain).
-
 ### Local Installation
 
 #### 1. Clone the repository
